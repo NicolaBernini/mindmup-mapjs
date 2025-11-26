@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mind Map - Popup Editor</title>
+    <link rel="stylesheet" type="text/css" href="test/mapjs-default-styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+        }
+        .toolbar {
+            background: #2196F3;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .toolbar button, .toolbar label {
+            background: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .toolbar button:hover, .toolbar label:hover {
+            background: #e3f2fd;
+        }
+        .toolbar input[type="file"] {
+            display: none;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .status {
+            background: #fff3cd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ffc107;
+        }
+        #container {
+            width: 100%;
+            height: 550px;
+            border: 3px solid #4CAF50;
+            background: #fafafa;
+        }
+        #container.drag-over {
+            border-color: #FF9800;
+            background: #fff3e0;
+        }
+        .mapjs-node {
+            white-space: nowrap !important;
+            min-width: 100px !important;
+            max-width: 600px !important;
+            padding: 10px 20px !important;
+            cursor: pointer;
+        }
+        .mapjs-node .katex {
+            font-size: 1.15em;
+        }
+
+        /* Popup Editor Modal */
+        .editor-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            animation: fadeIn 0.2s;
+        }
+
+        .editor-modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .editor-content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 700px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .editor-header {
+            background: #2196F3;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .editor-header h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .editor-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+        }
+
+        .editor-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .editor-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .editor-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        .editor-textarea:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+
+        .editor-preview {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+            min-height: 50px;
+        }
+
+        .editor-preview-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .editor-preview-content {
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .editor-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .editor-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-save:hover {
+            background: #45a049;
+        }
+
+        .btn-cancel {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-cancel:hover {
+            background: #da190b;
+        }
+
+        .editor-help {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #0277bd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mind Map - Popup Editor (Experimental)</h1>
+
+    <div class="toolbar">
+        <button onclick="saveToFile()">💾 Save</button>
+        <label for="loadFile">📂 Load</label>
+        <input type="file" id="loadFile" accept=".mup,.json" onchange="loadFromFile(event)">
+        <button onclick="exportToMarkdown()">📝 Export MD</button>
+        <span style="color: white; margin-left: auto; font-size: 14px;">
+            <strong>Double-click</strong> any node to open popup editor
+        </span>
+    </div>
+
+    <div class="instructions">
+        <strong>How to use:</strong><br>
+        • <strong>Tab</strong> - Add child node<br>
+        • <strong>Space</strong> or <strong>F2</strong> or <strong>Double-click</strong> - Open popup editor with math preview ✨<br>
+        • <strong>Ctrl+Enter</strong> in popup - Save and close<br>
+        • Try math: <code>$E=mc^2$</code> <code>$x=\frac{a}{b}$</code> <code>$\int_0^\infty e^{-x^2}dx$</code>
+    </div>
+
+    <div class="status" id="status">Status: Ready</div>
+
+    <div id="container" tabindex="1"></div>
+
+    <!-- Popup Editor Modal -->
+    <div id="editorModal" class="editor-modal">
+        <div class="editor-content">
+            <div class="editor-header">
+                <h2>📝 Edit Node Content</h2>
+                <button class="editor-close" onclick="closeEditor()">&times;</button>
+            </div>
+            <div class="editor-body">
+                <textarea id="editorTextarea" class="editor-textarea" placeholder="Type your text here... Use $math$ for inline math and $$math$$ for display math"></textarea>
+
+                <div class="editor-help">
+                    <strong>Math Tips:</strong>
+                    Inline: <code>$E=mc^2$</code> |
+                    Display: <code>$$x=\frac{a}{b}$$</code> |
+                    Symbols: <code>\alpha \beta \gamma \sum \int</code>
+                </div>
+
+                <div class="editor-preview">
+                    <div class="editor-preview-label">Preview:</div>
+                    <div id="editorPreview" class="editor-preview-content">Preview will appear here...</div>
+                </div>
+            </div>
+            <div class="editor-footer">
+                <button class="btn-cancel" onclick="closeEditor()">Cancel</button>
+                <button class="btn-save" onclick="saveEditor()">Save (Enter)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="lib/dependencies.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <script src="src/mapjs.js"></script>
+    <script src="src/observable.js"></script>
+    <script src="src/url-helper.js"></script>
+    <script src="src/content.js"></script>
+    <script src="src/layout.js"></script>
+    <script src="src/clipboard.js"></script>
+    <script src="src/hammer-draggable.js"></script>
+    <script src="src/map-model.js"></script>
+    <script src="src/map-toolbar-widget.js"></script>
+    <script src="src/link-edit-widget.js"></script>
+    <script src="src/image-drop-widget.js"></script>
+    <script src="src/dom-map-view.js"></script>
+    <script src="src/dom-map-widget.js"></script>
+
+    <script>
+        function updateStatus(msg) {
+            document.getElementById('status').textContent = 'Status: ' + msg;
+            console.log('STATUS:', msg);
+        }
+
+        var mindMapData = {
+            id: 1,
+            title: 'Double-click me!',
+            formatVersion: 3
+        };
+
+        var container = jQuery('#container');
+        var idea = MAPJS.content(mindMapData);
+        var mapModel = new MAPJS.MapModel(MAPJS.DOMRender.layoutCalculator);
+
+        container.domMapWidget(console, mapModel, false);
+        jQuery('body').mapToolbarWidget(mapModel);
+        mapModel.setIdea(idea);
+        mapModel.selectNode(1);
+
+        // Math rendering
+        function renderAllMath() {
+            jQuery('span[data-mapjs-role=title]').each(function() {
+                var span = jQuery(this);
+                var text = span.text();
+                if (text.indexOf('$') !== -1 && !span.find('.katex').length) {
+                    try {
+                        renderMathInElement(span[0], {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    } catch (e) {
+                        console.error('KaTeX error:', e);
+                    }
+                }
+            });
+        }
+
+        mapModel.addEventListener('nodeCreated', function() { setTimeout(renderAllMath, 100); });
+        mapModel.addEventListener('nodeTitleChanged', function() { setTimeout(renderAllMath, 100); });
+        mapModel.addEventListener('inputEnabledChanged', function(enabled) {
+            if (enabled) setTimeout(renderAllMath, 150);
+        });
+
+        // ============================================================
+        // POPUP EDITOR FUNCTIONALITY
+        // ============================================================
+
+        var currentEditingNodeId = null;
+
+        // Override the default editNode behavior to open our popup instead
+        var originalEditNode = mapModel.editNode;
+        mapModel.editNode = function(source, shouldSelectAll, editingNew) {
+            // Get the currently selected node
+            var nodeId = mapModel.getSelectedNodeId();
+            if (nodeId) {
+                openEditor(nodeId);
+                return true; // Prevent default behavior
+            }
+            return false;
+        };
+
+        function openEditor(nodeId) {
+            currentEditingNodeId = nodeId;
+
+            // Get current node content
+            var layout = mapModel.getCurrentLayout();
+            var node = layout.nodes[nodeId];
+            var currentText = node ? node.title : '';
+
+            // Populate editor
+            var textarea = document.getElementById('editorTextarea');
+            textarea.value = currentText;
+
+            // Show modal
+            document.getElementById('editorModal').classList.add('show');
+
+            // Focus textarea
+            setTimeout(function() {
+                textarea.focus();
+                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            }, 100);
+
+            // Update preview
+            updatePreview();
+
+            updateStatus('Editing node ' + nodeId);
+        }
+
+        function closeEditor() {
+            document.getElementById('editorModal').classList.remove('show');
+            currentEditingNodeId = null;
+            updateStatus('Ready');
+        }
+
+        function saveEditor() {
+            if (currentEditingNodeId) {
+                var newText = document.getElementById('editorTextarea').value;
+
+                // Update the node title
+                mapModel.updateTitle(currentEditingNodeId, newText);
+
+                updateStatus('✓ Node updated');
+            }
+
+            closeEditor();
+        }
+
+        // Update preview as user types
+        document.getElementById('editorTextarea').addEventListener('input', updatePreview);
+
+        function updatePreview() {
+            var text = document.getElementById('editorTextarea').value;
+            var preview = document.getElementById('editorPreview');
+
+            if (!text) {
+                preview.textContent = 'Preview will appear here...';
+                return;
+            }
+
+            // Set text first
+            preview.textContent = text;
+
+            // Then render math if present
+            if (text.indexOf('$') !== -1) {
+                try {
+                    renderMathInElement(preview, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                } catch (e) {
+                    console.error('Preview render error:', e);
+                }
+            }
+        }
+
+        // Keyboard shortcuts in editor
+        document.getElementById('editorTextarea').addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + Enter to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                saveEditor();
+            }
+            // Escape to cancel
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeEditor();
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('editorModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditor();
+            }
+        });
+
+        // ============================================================
+        // SAVE/LOAD FUNCTIONALITY (same as before)
+        // ============================================================
+
+        function saveToFile() {
+            try {
+                var data = JSON.stringify(idea, null, 2);
+                var blob = new Blob([data], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = 'mindmap-' + timestamp + '.mup';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus('✓ Saved as ' + a.download);
+            } catch (e) {
+                updateStatus('✗ Error saving: ' + e.message);
+            }
+        }
+
+        function loadFromFile(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+            updateStatus('Loading ' + file.name + '...');
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var loadedData = JSON.parse(e.target.result);
+                    idea = MAPJS.content(loadedData);
+                    mapModel.setIdea(idea);
+                    mapModel.selectNode(loadedData.id || 1);
+                    setTimeout(function() {
+                        renderAllMath();
+                        updateStatus('✓ Loaded ' + file.name);
+                    }, 200);
+                } catch (err) {
+                    updateStatus('✗ Error: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // Drag & drop
+        container.on('dragover', function(e) {
+            e.preventDefault();
+            jQuery(this).addClass('drag-over');
+        });
+        container.on('dragleave', function(e) {
+            e.preventDefault();
+            jQuery(this).removeClass('drag-over');
+        });
+        container.on('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            jQuery(this).removeClass('drag-over');
+            var files = e.originalEvent.dataTransfer.files;
+            if (files.length > 0) {
+                var file = files[0];
+                if (file.name.match(/\.(mup|json)$/i)) {
+                    var reader = new FileReader();
+                    reader.onload = function(evt) {
+                        try {
+                            var loadedData = JSON.parse(evt.target.result);
+                            idea = MAPJS.content(loadedData);
+                            mapModel.setIdea(idea);
+                            mapModel.selectNode(loadedData.id || 1);
+                            setTimeout(function() {
+                                renderAllMath();
+                                updateStatus('✓ Loaded ' + file.name);
+                            }, 200);
+                        } catch (err) {
+                            updateStatus('✗ Error: ' + err.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            }
+        });
+
+        function exportToMarkdown() {
+            try {
+                var markdown = generateMarkdown(idea, 0);
+                var blob = new Blob([markdown], { type: 'text/markdown' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = 'mindmap-' + timestamp + '.md';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus('✓ Exported to Markdown');
+            } catch (e) {
+                updateStatus('✗ Export error: ' + e.message);
+            }
+        }
+
+        function generateMarkdown(node, level) {
+            var indent = '  '.repeat(level);
+            var marker = level === 0 ? '# ' : '- ';
+            var md = indent + marker + node.title + '\n';
+            if (node.ideas) {
+                var keys = Object.keys(node.ideas).map(Number).sort(function(a, b) {
+                    return Math.abs(a) - Math.abs(b);
+                });
+                keys.forEach(function(key) {
+                    md += generateMarkdown(node.ideas[key], level + 1);
+                });
+            }
+            return md;
+        }
+
+        // Initial render
+        setTimeout(function() {
+            renderAllMath();
+            container.focus();
+            updateStatus('Ready! Press Space/F2 or double-click to edit.');
+        }, 300);
+
+        window.mapModel = mapModel;
+        window.idea = idea;
+        window.renderMath = renderAllMath;
+
+        console.log('========================================');
+        console.log('Popup editor ready!');
+        console.log('Press Space/F2 or double-click to edit');
+        console.log('========================================');
+    </script>
+</body>
+</html>
