@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mind Map with Math Rendering (Auto-width)</title>
+    <link rel="stylesheet" type="text/css" href="test/mapjs-default-styles.css">
+
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .instructions code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #d63384;
+        }
+        #container {
+            width: 100%;
+            height: 600px;
+            border: 3px solid #4CAF50;
+            background: #fafafa;
+        }
+
+        /* IMPORTANT: Prevent text wrapping in nodes with math */
+        .mapjs-node {
+            white-space: nowrap !important;
+            min-width: 80px !important;
+            max-width: none !important;
+            padding: 8px 15px !important;
+        }
+
+        /* Make math formulas display nicely */
+        .mapjs-node .katex {
+            font-size: 1.1em;
+        }
+        .mapjs-node .katex-display {
+            margin: 0;
+        }
+
+        /* Style for editable nodes */
+        .mapjs-node[contenteditable=true] {
+            white-space: pre-wrap !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mind Map with Math Rendering (Auto-width)</h1>
+
+    <div class="instructions">
+        <strong>How to use:</strong> Click the node → Press <strong>Tab</strong> to add child → Type your math!<br><br>
+        <strong>Math Syntax (copy these examples):</strong><br>
+        • <code>$E = mc^2$</code> (Einstein's equation)<br>
+        • <code>$e^{i\pi} + 1 = 0$</code> (Euler's identity)<br>
+        • <code>$x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}$</code> (Quadratic formula)<br>
+        • <code>$\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$</code> (Gaussian integral)<br>
+        • <code>$\sum_{i=1}^n i^2 = \frac{n(n+1)(2n+1)}{6}$</code> (Sum of squares)<br><br>
+        <strong>Note:</strong> Nodes now auto-expand to fit math content!
+    </div>
+
+    <div id="container" tabindex="1"></div>
+
+    <!-- Load dependencies -->
+    <script src="lib/dependencies.js"></script>
+
+    <!-- KaTeX JS -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Load MAPJS library files -->
+    <script src="src/mapjs.js"></script>
+    <script src="src/observable.js"></script>
+    <script src="src/url-helper.js"></script>
+    <script src="src/content.js"></script>
+    <script src="src/layout.js"></script>
+    <script src="src/clipboard.js"></script>
+    <script src="src/hammer-draggable.js"></script>
+    <script src="src/map-model.js"></script>
+    <script src="src/map-toolbar-widget.js"></script>
+    <script src="src/link-edit-widget.js"></script>
+    <script src="src/image-drop-widget.js"></script>
+    <script src="src/dom-map-view.js"></script>
+    <script src="src/dom-map-widget.js"></script>
+
+    <script>
+        // Mind map starting with single root node
+        var mindMapData = {
+            id: 1,
+            title: 'Math Notes - Press Tab!'
+        };
+
+        // Function to render math in a text node
+        function renderMath(text) {
+            var tempDiv = document.createElement('div');
+            tempDiv.textContent = text;
+
+            try {
+                renderMathInElement(tempDiv, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false,
+                    errorColor: '#cc0000'
+                });
+                return tempDiv.innerHTML;
+            } catch (e) {
+                console.error('KaTeX rendering error:', e);
+                return text;
+            }
+        }
+
+        // Initialize
+        var container = jQuery('#container');
+        var idea = MAPJS.content(mindMapData);
+        var mapModel = new MAPJS.MapModel(MAPJS.DOMRender.layoutCalculator);
+
+        container.domMapWidget(console, mapModel, false);
+        jQuery('body').mapToolbarWidget(mapModel);
+        mapModel.setIdea(idea);
+        mapModel.selectNode(1);
+
+        // Function to render math in all nodes and trigger layout recalculation
+        function renderAllNodesMath() {
+            console.log('Rendering math in all nodes...');
+
+            var needsLayoutUpdate = false;
+
+            // Find all node spans with text
+            jQuery('.mapjs-node').each(function() {
+                var nodeElement = jQuery(this);
+                var spanElement = nodeElement.find('span[data-mapjs-role=title]');
+
+                if (spanElement.length > 0) {
+                    var currentText = spanElement.text();
+
+                    // Check if it contains math delimiters
+                    if (currentText.indexOf('$') !== -1) {
+                        console.log('Math detected, rendering:', currentText);
+
+                        // Render the math
+                        var renderedHTML = renderMath(currentText);
+                        spanElement.html(renderedHTML);
+
+                        needsLayoutUpdate = true;
+                        console.log('Math rendered successfully');
+                    }
+                }
+            });
+
+            // Force layout recalculation if we rendered any math
+            if (needsLayoutUpdate) {
+                console.log('Triggering layout recalculation...');
+
+                // Get the current idea and force a layout update
+                setTimeout(function() {
+                    // Trigger a layout recalculation by calling resetView
+                    // This will recalculate node positions based on new sizes
+                    var currentNode = mapModel.getSelectedNodeId();
+                    mapModel.selectNode(currentNode);
+                }, 100);
+            }
+        }
+
+        // Listen for node events and re-render all nodes
+        mapModel.addEventListener('nodeCreated', function(node) {
+            console.log('Node created:', node.id, node.title);
+            setTimeout(renderAllNodesMath, 50);
+        });
+
+        mapModel.addEventListener('nodeTitleChanged', function(node) {
+            console.log('Node title changed:', node.id, node.title);
+            setTimeout(renderAllNodesMath, 50);
+        });
+
+        // When editing ends, re-render math
+        mapModel.addEventListener('inputEnabledChanged', function(isEnabled) {
+            if (isEnabled) {
+                console.log('Edit mode ended - rendering math');
+                setTimeout(renderAllNodesMath, 100);
+            }
+        });
+
+        // Initial render
+        setTimeout(function() {
+            renderAllNodesMath();
+            container.focus();
+        }, 200);
+
+        window.mapModel = mapModel;
+        window.idea = idea;
+        window.renderMath = renderAllNodesMath;
+
+        console.log('Math rendering ready!');
+        console.log('Nodes will auto-expand to fit math content.');
+        console.log('Try: $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$');
+    </script>
+</body>
+</html>

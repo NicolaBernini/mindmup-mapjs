@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mind Map with Math - Working Version</title>
+    <link rel="stylesheet" type="text/css" href="test/mapjs-default-styles.css">
+
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .instructions code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #d63384;
+            font-size: 13px;
+        }
+        .status {
+            background: #fff3cd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ffc107;
+        }
+        #container {
+            width: 100%;
+            height: 600px;
+            border: 3px solid #4CAF50;
+            background: #fafafa;
+        }
+
+        /* Make nodes wider to accommodate math */
+        .mapjs-node {
+            white-space: nowrap !important;
+            min-width: 100px !important;
+            max-width: 600px !important;
+            padding: 10px 20px !important;
+        }
+
+        /* Math styling */
+        .mapjs-node .katex {
+            font-size: 1.15em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mind Map with Math Rendering</h1>
+
+    <div class="instructions">
+        <strong>Quick Start:</strong><br>
+        1. Click the central node<br>
+        2. Press <strong>Tab</strong> to add a child<br>
+        3. Type or paste: <code>Physics $E=mc^2$</code><br>
+        4. Press <strong>Enter</strong><br>
+        5. Math should render automatically!<br><br>
+
+        <strong>More examples to try:</strong><br>
+        • <code>Euler $e^{i\pi}+1=0$</code><br>
+        • <code>Quadratic $x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}$</code><br>
+        • <code>Integral $\int_0^\infty e^{-x^2}dx$</code><br>
+        • <code>Sum $\sum_{i=1}^n i^2$</code>
+    </div>
+
+    <div class="status" id="status">Status: Initializing...</div>
+
+    <div id="container" tabindex="1"></div>
+
+    <!-- Load dependencies -->
+    <script src="lib/dependencies.js"></script>
+
+    <!-- KaTeX JS -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Load MAPJS library files -->
+    <script src="src/mapjs.js"></script>
+    <script src="src/observable.js"></script>
+    <script src="src/url-helper.js"></script>
+    <script src="src/content.js"></script>
+    <script src="src/layout.js"></script>
+    <script src="src/clipboard.js"></script>
+    <script src="src/hammer-draggable.js"></script>
+    <script src="src/map-model.js"></script>
+    <script src="src/map-toolbar-widget.js"></script>
+    <script src="src/link-edit-widget.js"></script>
+    <script src="src/image-drop-widget.js"></script>
+    <script src="src/dom-map-view.js"></script>
+    <script src="src/dom-map-widget.js"></script>
+
+    <script>
+        function updateStatus(msg) {
+            document.getElementById('status').textContent = 'Status: ' + msg;
+            console.log('STATUS:', msg);
+        }
+
+        // Start with single root node
+        var mindMapData = {
+            id: 1,
+            title: 'Math Notes - Press Tab!'
+        };
+
+        updateStatus('Initializing map...');
+
+        // Initialize
+        var container = jQuery('#container');
+        var idea = MAPJS.content(mindMapData);
+        var mapModel = new MAPJS.MapModel(MAPJS.DOMRender.layoutCalculator);
+
+        container.domMapWidget(console, mapModel, false);
+        jQuery('body').mapToolbarWidget(mapModel);
+        mapModel.setIdea(idea);
+        mapModel.selectNode(1);
+
+        updateStatus('Ready! Click node and press Tab.');
+
+        // Simple function to render math in all nodes
+        function renderAllMath() {
+            updateStatus('Rendering math...');
+            console.log('=== Starting math rendering ===');
+
+            var mathRendered = false;
+
+            // Find all title spans
+            jQuery('span[data-mapjs-role=title]').each(function() {
+                var span = jQuery(this);
+                var text = span.text();
+
+                console.log('Checking node text:', text);
+
+                // Only process if contains $ and hasn't been processed yet
+                if (text.indexOf('$') !== -1 && !span.find('.katex').length) {
+                    console.log('  -> Has math! Rendering...');
+
+                    try {
+                        // Use renderMathInElement directly on the span
+                        renderMathInElement(span[0], {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+
+                        mathRendered = true;
+                        console.log('  -> Success!');
+                    } catch (e) {
+                        console.error('  -> Error:', e);
+                    }
+                }
+            });
+
+            if (mathRendered) {
+                updateStatus('Math rendered successfully!');
+            } else {
+                updateStatus('Ready! Click node and press Tab.');
+            }
+
+            console.log('=== Finished math rendering ===');
+        }
+
+        // Render math after various events
+        mapModel.addEventListener('nodeCreated', function(node) {
+            console.log('EVENT: Node created -', node.title);
+            setTimeout(renderAllMath, 100);
+        });
+
+        mapModel.addEventListener('nodeTitleChanged', function(node) {
+            console.log('EVENT: Title changed -', node.title);
+            setTimeout(renderAllMath, 100);
+        });
+
+        mapModel.addEventListener('inputEnabledChanged', function(enabled) {
+            if (enabled) {
+                console.log('EVENT: Edit mode ended');
+                setTimeout(renderAllMath, 150);
+            }
+        });
+
+        // Initial render and focus
+        setTimeout(function() {
+            renderAllMath();
+            container.focus();
+        }, 300);
+
+        // Make accessible from console
+        window.mapModel = mapModel;
+        window.idea = idea;
+        window.renderMath = renderAllMath;
+
+        console.log('===================================');
+        console.log('Math rendering initialized!');
+        console.log('Try typing: Physics $E=mc^2$');
+        console.log('To manually trigger: renderMath()');
+        console.log('===================================');
+    </script>
+</body>
+</html>
