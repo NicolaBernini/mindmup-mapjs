@@ -337,7 +337,7 @@
         <input type="file" id="loadFile" accept=".mup,.json,.zip" onchange="loadFromFile(event)">
         <button onclick="exportToMarkdown()">📝 Export MD</button>
         <span style="color: white; margin-left: auto; font-size: 13px;">
-            <strong>Space/F2</strong> to edit | <strong>Ctrl+V</strong> to paste image
+            <strong>Space/F2</strong> to edit | <strong>Ctrl+C/V</strong> copy/paste (works across tabs!)
         </span>
     </div>
 
@@ -499,6 +499,84 @@
         mapModel.addEventListener('nodeAttrChanged', function() { setTimeout(renderAllMath, 100); });
         mapModel.addEventListener('inputEnabledChanged', function(enabled) {
             if (enabled) setTimeout(renderAllMath, 150);
+        });
+
+        // ============================================================
+        // CROSS-TAB CLIPBOARD SUPPORT
+        // ============================================================
+
+        // Override mapModel.copy to also save to system clipboard
+        var originalCopy = mapModel.copy;
+        mapModel.copy = function(source) {
+            // Call original copy (saves to internal clipboard)
+            originalCopy.call(this, source);
+
+            // Also save to system clipboard for cross-tab support
+            try {
+                var activeNodeIds = [];
+                mapModel.applyToActivated(function (nodeId) {
+                    activeNodeIds.push(nodeId);
+                });
+
+                var clonedNodes = idea.cloneMultiple(activeNodeIds);
+
+                var clipboardData = JSON.stringify({
+                    type: 'mindmap-node',
+                    version: '1.0',
+                    data: clonedNodes
+                });
+
+                navigator.clipboard.writeText(clipboardData).then(function() {
+                    console.log('Node copied to system clipboard');
+                    updateStatus('✓ Copied (works across tabs!)');
+                }).catch(function(e) {
+                    console.log('System clipboard write failed:', e);
+                });
+            } catch (e) {
+                console.log('Copy to system clipboard error:', e);
+            }
+        };
+
+        // Listen to the DOM paste event (better browser compatibility)
+        container.on('paste', async function(e) {
+            // Don't interfere if we're in the editor popup
+            if (document.getElementById('editorModal').classList.contains('show')) {
+                return;
+            }
+
+            try {
+                var clipText = e.originalEvent.clipboardData.getData('text/plain');
+
+                // Check if it's our mindmap data
+                if (clipText && clipText.indexOf('"type":"mindmap-node"') !== -1) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    var clipData = JSON.parse(clipText);
+
+                    if (clipData.type === 'mindmap-node' && clipData.data) {
+                        console.log('Pasting from system clipboard (cross-tab)');
+                        updateStatus('✓ Pasted from system clipboard!');
+
+                        // Get the selected node
+                        var selectedId = mapModel.getSelectedNodeId();
+
+                        // Use MapJS paste functionality
+                        var result = idea.pasteMultiple(selectedId, clipData.data);
+                        if (result && result[0]) {
+                            mapModel.selectNode(result[0]);
+                        }
+
+                        // Re-render to show images
+                        setTimeout(renderAllMath, 100);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.log('Paste error:', e);
+            }
+
+            // If not our data, let MapJS handle it normally
         });
 
         // ============================================================
