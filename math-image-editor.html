@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mind Map - With Images</title>
+    <link rel="stylesheet" type="text/css" href="test/mapjs-default-styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+        }
+        .toolbar {
+            background: #2196F3;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .toolbar button, .toolbar label {
+            background: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .toolbar button:hover, .toolbar label:hover {
+            background: #e3f2fd;
+        }
+        .toolbar input[type="file"] {
+            display: none;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .instructions code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #d63384;
+            font-size: 12px;
+        }
+        .status {
+            background: #fff3cd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ffc107;
+            font-size: 14px;
+        }
+        #container {
+            width: 100%;
+            height: 500px;
+            border: 3px solid #4CAF50;
+            background: #fafafa;
+        }
+        #container.drag-over {
+            border-color: #FF9800;
+            background: #fff3e0;
+        }
+        .mapjs-node {
+            white-space: nowrap !important;
+            min-width: 100px !important;
+            max-width: 600px !important;
+            padding: 10px 20px !important;
+            cursor: pointer;
+        }
+        .mapjs-node .katex {
+            font-size: 1.15em;
+        }
+
+        /* Image display in nodes */
+        .node-image {
+            display: block;
+            max-width: 300px;
+            max-height: 200px;
+            margin: 5px auto;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+
+        /* Editor Modal */
+        .editor-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            animation: fadeIn 0.2s;
+        }
+        .editor-modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .editor-content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            animation: slideIn 0.3s;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .editor-header {
+            background: #2196F3;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .editor-header h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .editor-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+        }
+        .editor-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .editor-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .editor-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .editor-textarea:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        .editor-image-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            border: 2px dashed #ddd;
+        }
+        .editor-image-section h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .editor-image-preview {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .editor-image-preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        .editor-image-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .editor-image-controls button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-paste {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-paste:hover {
+            background: #45a049;
+        }
+        .btn-remove {
+            background: #f44336;
+            color: white;
+        }
+        .btn-remove:hover {
+            background: #da190b;
+        }
+        .editor-preview {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+            min-height: 50px;
+        }
+        .editor-preview-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        .editor-preview-content {
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        .editor-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .editor-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-save:hover {
+            background: #45a049;
+        }
+        .btn-cancel {
+            background: #f44336;
+            color: white;
+        }
+        .btn-cancel:hover {
+            background: #da190b;
+        }
+        .editor-help {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #0277bd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mind Map - Math + Images</h1>
+
+    <div class="toolbar">
+        <button onclick="saveToJSON()">💾 Save JSON</button>
+        <button onclick="exportToZIP()">📦 Export ZIP</button>
+        <label for="loadFile">📂 Load</label>
+        <input type="file" id="loadFile" accept=".mup,.json,.zip" onchange="loadFromFile(event)">
+        <button onclick="exportToMarkdown()">📝 Export MD</button>
+        <span style="color: white; margin-left: auto; font-size: 13px;">
+            <strong>Space/F2</strong> to edit | <strong>Ctrl+V</strong> to paste image
+        </span>
+    </div>
+
+    <div class="instructions">
+        <strong>New Features:</strong><br>
+        • <strong>Paste images:</strong> Select node → Press Space → Paste image (Ctrl+V) in editor<br>
+        • <strong>Export ZIP:</strong> Saves mindmap.mup + images/ folder with separate PNG files<br>
+        • <strong>AI-ready:</strong> ZIP structure designed for AI agent parsing<br>
+        • Math still works: <code>$E=mc^2$</code> <code>$\int_0^\infty e^{-x^2}dx$</code>
+    </div>
+
+    <div class="status" id="status">Status: Ready</div>
+
+    <div id="container" tabindex="1"></div>
+
+    <!-- Editor Modal -->
+    <div id="editorModal" class="editor-modal">
+        <div class="editor-content">
+            <div class="editor-header">
+                <h2>📝 Edit Node</h2>
+                <button class="editor-close" onclick="closeEditor()">&times;</button>
+            </div>
+            <div class="editor-body">
+                <textarea id="editorTextarea" class="editor-textarea" placeholder="Type text... Use $math$ for formulas"></textarea>
+
+                <div class="editor-help">
+                    <strong>Math:</strong> <code>$E=mc^2$</code> <code>$$\frac{a}{b}$$</code> |
+                    <strong>Image:</strong> Copy image → Click "Paste Image" or press Ctrl+V
+                </div>
+
+                <div class="editor-image-section">
+                    <h3>🖼️ Image (optional)</h3>
+                    <div class="editor-image-controls">
+                        <button class="btn-paste" onclick="pasteImageFromClipboard()">📋 Paste Image (Ctrl+V)</button>
+                        <button class="btn-remove" onclick="removeImage()" id="removeImageBtn" style="display:none;">🗑️ Remove Image</button>
+                    </div>
+                    <div class="editor-image-preview" id="imagePreview"></div>
+                </div>
+
+                <div class="editor-preview">
+                    <div class="editor-preview-label">Preview:</div>
+                    <div id="editorPreview" class="editor-preview-content">Preview will appear here...</div>
+                </div>
+            </div>
+            <div class="editor-footer">
+                <button class="btn-cancel" onclick="closeEditor()">Cancel</button>
+                <button class="btn-save" onclick="saveEditor()">Save (Ctrl+Enter)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="lib/dependencies.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script src="src/mapjs.js"></script>
+    <script src="src/observable.js"></script>
+    <script src="src/url-helper.js"></script>
+    <script src="src/content.js"></script>
+    <script src="src/layout.js"></script>
+    <script src="src/clipboard.js"></script>
+    <script src="src/hammer-draggable.js"></script>
+    <script src="src/map-model.js"></script>
+    <script src="src/map-toolbar-widget.js"></script>
+    <script src="src/link-edit-widget.js"></script>
+    <script src="src/image-drop-widget.js"></script>
+    <script src="src/dom-map-view.js"></script>
+    <script src="src/dom-map-widget.js"></script>
+
+    <script>
+        function updateStatus(msg) {
+            document.getElementById('status').textContent = 'Status: ' + msg;
+            console.log('STATUS:', msg);
+        }
+
+        var mindMapData = {
+            id: 1,
+            title: 'My Mind Map',
+            formatVersion: 3,
+            attr: {
+                created: new Date().toISOString()
+            }
+        };
+
+        var container = jQuery('#container');
+        var idea = MAPJS.content(mindMapData);
+        var mapModel = new MAPJS.MapModel(MAPJS.DOMRender.layoutCalculator);
+
+        container.domMapWidget(console, mapModel, false);
+        jQuery('body').mapToolbarWidget(mapModel);
+        mapModel.setIdea(idea);
+        mapModel.selectNode(1);
+
+        // Image counter for unique filenames
+        var imageCounter = 0;
+
+        // Math rendering
+        function renderAllMath() {
+            jQuery('span[data-mapjs-role=title]').each(function() {
+                var span = jQuery(this);
+                var text = span.text();
+                if (text.indexOf('$') !== -1 && !span.find('.katex').length) {
+                    try {
+                        renderMathInElement(span[0], {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    } catch (e) {
+                        console.error('KaTeX error:', e);
+                    }
+                }
+            });
+
+            // Also render images
+            renderAllImages();
+        }
+
+        // Render images in nodes
+        function renderAllImages() {
+            jQuery('.mapjs-node').each(function() {
+                var node = jQuery(this);
+                var nodeId = node.attr('data-nodeid');
+
+                if (!nodeId) return;
+
+                // Get node data
+                var layout = mapModel.getCurrentLayout();
+                var nodeData = layout.nodes[nodeId];
+
+                if (!nodeData || !nodeData.attr || !nodeData.attr.image) return;
+
+                // Check if image already rendered
+                if (node.find('.node-image').length > 0) return;
+
+                // Add image
+                var img = jQuery('<img>')
+                    .addClass('node-image')
+                    .attr('src', nodeData.attr.image.data);
+
+                // Insert after title
+                node.find('span[data-mapjs-role=title]').after(img);
+            });
+        }
+
+        mapModel.addEventListener('nodeCreated', function() { setTimeout(renderAllMath, 100); });
+        mapModel.addEventListener('nodeTitleChanged', function() { setTimeout(renderAllMath, 100); });
+        mapModel.addEventListener('nodeAttrChanged', function() { setTimeout(renderAllMath, 100); });
+        mapModel.addEventListener('inputEnabledChanged', function(enabled) {
+            if (enabled) setTimeout(renderAllMath, 150);
+        });
+
+        // ============================================================
+        // POPUP EDITOR WITH IMAGE SUPPORT
+        // ============================================================
+
+        var currentEditingNodeId = null;
+        var currentImageData = null;
+
+        // Override editNode
+        mapModel.editNode = function(source, shouldSelectAll, editingNew) {
+            var nodeId = mapModel.getSelectedNodeId();
+            if (nodeId) {
+                openEditor(nodeId);
+                return true;
+            }
+            return false;
+        };
+
+        function openEditor(nodeId) {
+            currentEditingNodeId = nodeId;
+            currentImageData = null;
+
+            // Get current node content
+            var layout = mapModel.getCurrentLayout();
+            var node = layout.nodes[nodeId];
+            var currentText = node ? node.title : '';
+
+            // Get current image if exists
+            if (node && node.attr && node.attr.image) {
+                currentImageData = node.attr.image;
+            }
+
+            // Populate editor
+            var textarea = document.getElementById('editorTextarea');
+            textarea.value = currentText;
+
+            // Show image if exists
+            if (currentImageData) {
+                showImagePreview(currentImageData.data);
+            } else {
+                clearImagePreview();
+            }
+
+            // Show modal
+            document.getElementById('editorModal').classList.add('show');
+
+            setTimeout(function() {
+                textarea.focus();
+            }, 100);
+
+            updatePreview();
+            updateStatus('Editing node ' + nodeId);
+        }
+
+        function closeEditor() {
+            document.getElementById('editorModal').classList.remove('show');
+            currentEditingNodeId = null;
+            currentImageData = null;
+            clearImagePreview();
+            updateStatus('Ready');
+        }
+
+        function saveEditor() {
+            if (currentEditingNodeId) {
+                var newText = document.getElementById('editorTextarea').value;
+
+                // Update title
+                mapModel.updateTitle(currentEditingNodeId, newText);
+
+                // Update image if present
+                if (currentImageData) {
+                    // Get or create attr object
+                    var layout = mapModel.getCurrentLayout();
+                    var node = layout.nodes[currentEditingNodeId];
+
+                    if (!node.attr) {
+                        node.attr = {};
+                    }
+
+                    node.attr.image = currentImageData;
+
+                    // Trigger attr change event
+                    mapModel.dispatchEvent('nodeAttrChanged', node);
+                } else {
+                    // Remove image if cleared
+                    var layout = mapModel.getCurrentLayout();
+                    var node = layout.nodes[currentEditingNodeId];
+
+                    if (node.attr && node.attr.image) {
+                        delete node.attr.image;
+                        mapModel.dispatchEvent('nodeAttrChanged', node);
+                    }
+                }
+
+                updateStatus('✓ Node updated');
+            }
+
+            closeEditor();
+        }
+
+        // Paste image from clipboard
+        async function pasteImageFromClipboard() {
+            try {
+                const clipboardItems = await navigator.clipboard.read();
+
+                for (const item of clipboardItems) {
+                    for (const type of item.types) {
+                        if (type.startsWith('image/')) {
+                            const blob = await item.getType(type);
+                            await processImageBlob(blob);
+                            return;
+                        }
+                    }
+                }
+
+                updateStatus('No image in clipboard');
+            } catch (err) {
+                console.error('Clipboard error:', err);
+                updateStatus('⚠️ Clipboard access denied. Try Ctrl+V instead.');
+            }
+        }
+
+        // Handle Ctrl+V in editor
+        document.getElementById('editorTextarea').addEventListener('paste', async function(e) {
+            const items = e.clipboardData.items;
+
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const blob = item.getAsFile();
+                    await processImageBlob(blob);
+                    break;
+                }
+            }
+        });
+
+        async function processImageBlob(blob) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const base64 = e.target.result;
+
+                // Generate unique filename
+                imageCounter++;
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                const filename = `img-${timestamp}-${String(imageCounter).padStart(3, '0')}.png`;
+
+                // Create image metadata
+                currentImageData = {
+                    filename: filename,
+                    data: base64,
+                    timestamp: new Date().toISOString(),
+                    size: blob.size
+                };
+
+                showImagePreview(base64);
+                updatePreview();
+                updateStatus('✓ Image pasted');
+            };
+
+            reader.readAsDataURL(blob);
+        }
+
+        function showImagePreview(base64) {
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '<img src="' + base64 + '">';
+            document.getElementById('removeImageBtn').style.display = 'block';
+        }
+
+        function clearImagePreview() {
+            document.getElementById('imagePreview').innerHTML = '';
+            document.getElementById('removeImageBtn').style.display = 'none';
+        }
+
+        function removeImage() {
+            currentImageData = null;
+            clearImagePreview();
+            updatePreview();
+            updateStatus('Image removed');
+        }
+
+        // Update preview
+        document.getElementById('editorTextarea').addEventListener('input', updatePreview);
+
+        function updatePreview() {
+            var text = document.getElementById('editorTextarea').value;
+            var preview = document.getElementById('editorPreview');
+
+            preview.innerHTML = '';
+
+            if (text) {
+                preview.textContent = text;
+
+                if (text.indexOf('$') !== -1) {
+                    try {
+                        renderMathInElement(preview, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    } catch (e) {
+                        console.error('Preview error:', e);
+                    }
+                }
+            }
+
+            if (currentImageData) {
+                var img = document.createElement('img');
+                img.src = currentImageData.data;
+                img.className = 'node-image';
+                preview.appendChild(img);
+            }
+
+            if (!text && !currentImageData) {
+                preview.textContent = 'Preview will appear here...';
+            }
+        }
+
+        // Keyboard shortcuts
+        document.getElementById('editorTextarea').addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                saveEditor();
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeEditor();
+            }
+        });
+
+        document.getElementById('editorModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditor();
+            }
+        });
+
+        // ============================================================
+        // SAVE TO JSON
+        // ============================================================
+
+        function saveToJSON() {
+            try {
+                var data = JSON.stringify(idea, null, 2);
+                var blob = new Blob([data], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = 'mindmap-' + timestamp + '.mup';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus('✓ Saved as ' + a.download);
+            } catch (e) {
+                updateStatus('✗ Error: ' + e.message);
+            }
+        }
+
+        // ============================================================
+        // EXPORT TO ZIP with separate image files
+        // ============================================================
+
+        async function exportToZIP() {
+            try {
+                updateStatus('Creating ZIP...');
+
+                const zip = new JSZip();
+                const imagesFolder = zip.folder('images');
+
+                // Clone the idea to modify it
+                var exportData = JSON.parse(JSON.stringify(idea));
+
+                // Extract images and replace with references
+                var imageMap = {};
+
+                function processNode(node) {
+                    if (node.attr && node.attr.image) {
+                        var imgData = node.attr.image;
+                        var filename = imgData.filename;
+
+                        // Extract base64 data
+                        var base64Data = imgData.data.split(',')[1];
+
+                        // Add to ZIP
+                        imagesFolder.file(filename, base64Data, {base64: true});
+
+                        // Replace with file reference
+                        node.attr.image = {
+                            filename: filename,
+                            path: 'images/' + filename,
+                            timestamp: imgData.timestamp,
+                            size: imgData.size
+                        };
+
+                        imageMap[filename] = true;
+                    }
+
+                    if (node.ideas) {
+                        Object.keys(node.ideas).forEach(function(key) {
+                            processNode(node.ideas[key]);
+                        });
+                    }
+                }
+
+                processNode(exportData);
+
+                // Add metadata for AI parsing
+                exportData.export = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    images: Object.keys(imageMap),
+                    structure: 'mindmap.mup contains references, images/ contains PNG files'
+                };
+
+                // Add mindmap.mup
+                zip.file('mindmap.mup', JSON.stringify(exportData, null, 2));
+
+                // Add README for AI
+                var readme = `# Mind Map Export
+
+This ZIP contains:
+- mindmap.mup: Main mind map data with image references
+- images/: Folder with image files
+
+## Structure for AI Parsing
+
+The mindmap.mup is JSON with this structure:
+- id: unique node identifier
+- title: node text (may contain LaTeX math like $E=mc^2$)
+- ideas: object with child nodes (positive keys = right, negative = left)
+- attr.image: object with filename, path, timestamp, size
+
+## Images
+
+Images are referenced in nodes via attr.image.path
+All image files are in the images/ folder with unique timestamped names.
+
+Generated: ${new Date().toISOString()}
+`;
+                zip.file('README.md', readme);
+
+                // Generate ZIP
+                const content = await zip.generateAsync({type: 'blob'});
+
+                // Download
+                var url = URL.createObjectURL(content);
+                var a = document.createElement('a');
+                a.href = url;
+                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = 'mindmap-' + timestamp + '.zip';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                updateStatus('✓ Exported ZIP with ' + Object.keys(imageMap).length + ' images');
+            } catch (e) {
+                updateStatus('✗ Export error: ' + e.message);
+                console.error('Export error:', e);
+            }
+        }
+
+        // ============================================================
+        // LOAD from file (JSON or ZIP)
+        // ============================================================
+
+        async function loadFromFile(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+
+            updateStatus('Loading ' + file.name + '...');
+
+            if (file.name.endsWith('.zip')) {
+                await loadFromZIP(file);
+            } else {
+                loadFromJSON(file);
+            }
+
+            event.target.value = '';
+        }
+
+        function loadFromJSON(file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var loadedData = JSON.parse(e.target.result);
+                    idea = MAPJS.content(loadedData);
+                    mapModel.setIdea(idea);
+                    mapModel.selectNode(loadedData.id || 1);
+                    setTimeout(function() {
+                        renderAllMath();
+                        updateStatus('✓ Loaded ' + file.name);
+                    }, 200);
+                } catch (err) {
+                    updateStatus('✗ Error: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function loadFromZIP(file) {
+            try {
+                const zip = await JSZip.loadAsync(file);
+
+                // Read mindmap.mup
+                const mupFile = zip.file('mindmap.mup');
+                if (!mupFile) {
+                    throw new Error('No mindmap.mup found in ZIP');
+                }
+
+                const mupContent = await mupFile.async('string');
+                var loadedData = JSON.parse(mupContent);
+
+                // Load images back as base64
+                function processNode(node) {
+                    if (node.attr && node.attr.image && node.attr.image.path) {
+                        var imagePath = node.attr.image.path;
+                        var imageFile = zip.file(imagePath);
+
+                        if (imageFile) {
+                            // This is async, but we'll handle it
+                            imageFile.async('base64').then(function(base64) {
+                                node.attr.image.data = 'data:image/png;base64,' + base64;
+                                renderAllMath();
+                            });
+                        }
+                    }
+
+                    if (node.ideas) {
+                        Object.keys(node.ideas).forEach(function(key) {
+                            processNode(node.ideas[key]);
+                        });
+                    }
+                }
+
+                processNode(loadedData);
+
+                idea = MAPJS.content(loadedData);
+                mapModel.setIdea(idea);
+                mapModel.selectNode(loadedData.id || 1);
+
+                setTimeout(function() {
+                    renderAllMath();
+                    updateStatus('✓ Loaded ZIP: ' + file.name);
+                }, 500);
+
+            } catch (err) {
+                updateStatus('✗ ZIP error: ' + err.message);
+                console.error('ZIP error:', err);
+            }
+        }
+
+        // Drag & drop
+        container.on('dragover', function(e) {
+            e.preventDefault();
+            jQuery(this).addClass('drag-over');
+        });
+        container.on('dragleave', function(e) {
+            e.preventDefault();
+            jQuery(this).removeClass('drag-over');
+        });
+        container.on('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            jQuery(this).removeClass('drag-over');
+            var files = e.originalEvent.dataTransfer.files;
+            if (files.length > 0) {
+                var file = files[0];
+                if (file.name.match(/\.(mup|json|zip)$/i)) {
+                    if (file.name.endsWith('.zip')) {
+                        loadFromZIP(file);
+                    } else {
+                        loadFromJSON(file);
+                    }
+                }
+            }
+        });
+
+        // Markdown export (same as before)
+        function exportToMarkdown() {
+            try {
+                var markdown = generateMarkdown(idea, 0);
+                var blob = new Blob([markdown], { type: 'text/markdown' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = 'mindmap-' + timestamp + '.md';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus('✓ Exported to Markdown');
+            } catch (e) {
+                updateStatus('✗ Export error: ' + e.message);
+            }
+        }
+
+        function generateMarkdown(node, level) {
+            var indent = '  '.repeat(level);
+            var marker = level === 0 ? '# ' : '- ';
+            var md = indent + marker + node.title + '\n';
+
+            if (node.attr && node.attr.image) {
+                md += indent + '  ![Image](' + (node.attr.image.path || 'embedded') + ')\n';
+            }
+
+            if (node.ideas) {
+                var keys = Object.keys(node.ideas).map(Number).sort(function(a, b) {
+                    return Math.abs(a) - Math.abs(b);
+                });
+                keys.forEach(function(key) {
+                    md += generateMarkdown(node.ideas[key], level + 1);
+                });
+            }
+            return md;
+        }
+
+        // Initial render
+        setTimeout(function() {
+            renderAllMath();
+            container.focus();
+            updateStatus('Ready! Press Space to edit, Ctrl+V to paste images.');
+        }, 300);
+
+        window.mapModel = mapModel;
+        window.idea = idea;
+        window.renderMath = renderAllMath;
+
+        console.log('========================================');
+        console.log('Mind Map with Images ready!');
+        console.log('Paste images with Ctrl+V in editor');
+        console.log('Export to ZIP for AI-readable format');
+        console.log('========================================');
+    </script>
+</body>
+</html>
