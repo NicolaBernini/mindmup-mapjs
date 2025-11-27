@@ -462,19 +462,32 @@
 
                 if (!nodeId) return;
 
-                // Get node data
-                var layout = mapModel.getCurrentLayout();
-                var nodeData = layout.nodes[nodeId];
+                // Get node data from the actual idea (data model)
+                var nodeData = idea.findSubIdeaById(nodeId) || (nodeId == idea.id ? idea : null);
+                if (!nodeData) return;
 
-                if (!nodeData || !nodeData.attr || !nodeData.attr.image) return;
+                // Get image attribute from the data model
+                var imageAttr = nodeData.getAttr('image');
+                if (!imageAttr || !imageAttr.data) {
+                    // Remove image if it was deleted
+                    node.find('.node-image').remove();
+                    return;
+                }
 
                 // Check if image already rendered
-                if (node.find('.node-image').length > 0) return;
+                var existingImg = node.find('.node-image');
+                if (existingImg.length > 0) {
+                    // Update existing image if data changed
+                    if (existingImg.attr('src') !== imageAttr.data) {
+                        existingImg.attr('src', imageAttr.data);
+                    }
+                    return;
+                }
 
-                // Add image
+                // Add new image
                 var img = jQuery('<img>')
                     .addClass('node-image')
-                    .attr('src', nodeData.attr.image.data);
+                    .attr('src', imageAttr.data);
 
                 // Insert after title
                 node.find('span[data-mapjs-role=title]').after(img);
@@ -509,14 +522,14 @@
             currentEditingNodeId = nodeId;
             currentImageData = null;
 
-            // Get current node content
-            var layout = mapModel.getCurrentLayout();
-            var node = layout.nodes[nodeId];
-            var currentText = node ? node.title : '';
+            // Get current node from the idea (data model), not just layout
+            var nodeData = idea.findSubIdeaById(nodeId) || idea;
+            var currentText = nodeData ? nodeData.title : '';
 
-            // Get current image if exists
-            if (node && node.attr && node.attr.image) {
-                currentImageData = node.attr.image;
+            // Get current image if exists (from the actual data)
+            var imageAttr = nodeData.getAttr('image');
+            if (imageAttr) {
+                currentImageData = imageAttr;
             }
 
             // Populate editor
@@ -568,29 +581,15 @@
                 // Update title
                 mapModel.updateTitle(currentEditingNodeId, newText);
 
-                // Update image if present
+                // Update image using the proper API
                 if (currentImageData) {
-                    // Get or create attr object
-                    var layout = mapModel.getCurrentLayout();
-                    var node = layout.nodes[currentEditingNodeId];
-
-                    if (!node.attr) {
-                        node.attr = {};
-                    }
-
-                    node.attr.image = currentImageData;
-
-                    // Trigger attr change event
-                    mapModel.dispatchEvent('nodeAttrChanged', node);
+                    // Use idea.updateAttr to properly save to the data model
+                    idea.updateAttr(currentEditingNodeId, 'image', currentImageData);
+                    console.log('Image saved to node', currentEditingNodeId);
                 } else {
                     // Remove image if cleared
-                    var layout = mapModel.getCurrentLayout();
-                    var node = layout.nodes[currentEditingNodeId];
-
-                    if (node.attr && node.attr.image) {
-                        delete node.attr.image;
-                        mapModel.dispatchEvent('nodeAttrChanged', node);
-                    }
+                    idea.updateAttr(currentEditingNodeId, 'image', false);
+                    console.log('Image removed from node', currentEditingNodeId);
                 }
 
                 updateStatus('✓ Node updated');
