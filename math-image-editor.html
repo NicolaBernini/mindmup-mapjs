@@ -499,10 +499,22 @@
 
         function closeEditor() {
             document.getElementById('editorModal').classList.remove('show');
+
+            // Keep the node selected and refocus the container
+            var nodeToSelect = currentEditingNodeId;
+
             currentEditingNodeId = null;
             currentImageData = null;
             clearImagePreview();
             updateStatus('Ready');
+
+            // Refocus the container and keep the node selected
+            setTimeout(function() {
+                if (nodeToSelect) {
+                    mapModel.selectNode(nodeToSelect);
+                }
+                container.focus();
+            }, 100);
         }
 
         function saveEditor() {
