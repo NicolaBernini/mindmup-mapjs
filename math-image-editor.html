@@ -325,6 +325,60 @@
             font-size: 12px;
             color: #0277bd;
         }
+
+        /* Search functionality */
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+        .search-box input {
+            border: 1px solid #ddd;
+            padding: 6px 10px;
+            border-radius: 3px;
+            font-size: 13px;
+            width: 200px;
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        .search-box button {
+            background: #2196F3 !important;
+            color: white !important;
+            padding: 6px 12px !important;
+            font-size: 12px !important;
+            margin: 0 !important;
+        }
+        .search-box button:hover {
+            background: #1976D2 !important;
+        }
+        .search-box button:disabled {
+            background: #ccc !important;
+            cursor: not-allowed;
+        }
+        .search-results-info {
+            color: #333;
+            font-size: 13px;
+            font-weight: normal;
+        }
+
+        /* Highlight search matches */
+        .mapjs-node.search-match {
+            box-shadow: 0 0 0 3px #FFD700 !important;
+            animation: pulse 1s ease-in-out;
+        }
+        .mapjs-node.search-current {
+            box-shadow: 0 0 0 4px #FF6B00 !important;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
     </style>
 </head>
 <body>
@@ -336,6 +390,16 @@
         <label for="loadFile">📂 Load</label>
         <input type="file" id="loadFile" accept=".mup,.json,.zip" onchange="loadFromFile(event)">
         <button onclick="exportToMarkdown()">📝 Export MD</button>
+
+        <div class="search-box">
+            <span>🔍</span>
+            <input type="text" id="searchInput" placeholder="Search nodes..." onkeydown="handleSearchKeydown(event)">
+            <button onclick="searchNodes()" id="searchBtn">Search</button>
+            <button onclick="navigateSearch(-1)" id="prevBtn" disabled>◀</button>
+            <button onclick="navigateSearch(1)" id="nextBtn" disabled>▶</button>
+            <span class="search-results-info" id="searchInfo"></span>
+        </div>
+
         <span style="color: white; margin-left: auto; font-size: 13px;">
             <strong>Space/F2</strong> to edit | <strong>Ctrl+C/V</strong> copy/paste (works across tabs!)
         </span>
@@ -1108,6 +1172,153 @@ Generated: ${new Date().toISOString()}
             return md;
         }
 
+        // ============================================================
+        // SEARCH FUNCTIONALITY
+        // ============================================================
+
+        var searchResults = [];
+        var currentSearchIndex = -1;
+
+        function handleSearchKeydown(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                searchNodes();
+            }
+            if (event.key === 'Escape') {
+                clearSearch();
+            }
+        }
+
+        function searchNodes() {
+            var query = document.getElementById('searchInput').value.trim();
+
+            if (!query) {
+                clearSearch();
+                updateStatus('Enter search query');
+                return;
+            }
+
+            // Clear previous search
+            clearSearchHighlights();
+            searchResults = [];
+            currentSearchIndex = -1;
+
+            // Search using idea.find() - case insensitive
+            var lowerQuery = query.toLowerCase();
+            var matchingNodes = idea.find(function(node) {
+                return node.title && node.title.toLowerCase().indexOf(lowerQuery) !== -1;
+            });
+
+            searchResults = matchingNodes || [];
+
+            if (searchResults.length === 0) {
+                updateSearchInfo('No matches found');
+                updateStatus('No matches for "' + query + '"');
+                document.getElementById('prevBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                return;
+            }
+
+            // Highlight all matches
+            highlightSearchResults();
+
+            // Select first result
+            currentSearchIndex = 0;
+            navigateToCurrentResult();
+
+            updateSearchInfo((currentSearchIndex + 1) + ' / ' + searchResults.length);
+            updateStatus('Found ' + searchResults.length + ' matches for "' + query + '"');
+
+            // Enable navigation buttons
+            document.getElementById('prevBtn').disabled = false;
+            document.getElementById('nextBtn').disabled = false;
+        }
+
+        function navigateSearch(direction) {
+            if (searchResults.length === 0) return;
+
+            currentSearchIndex += direction;
+
+            // Wrap around
+            if (currentSearchIndex < 0) {
+                currentSearchIndex = searchResults.length - 1;
+            } else if (currentSearchIndex >= searchResults.length) {
+                currentSearchIndex = 0;
+            }
+
+            navigateToCurrentResult();
+            updateSearchInfo((currentSearchIndex + 1) + ' / ' + searchResults.length);
+        }
+
+        function navigateToCurrentResult() {
+            if (currentSearchIndex < 0 || currentSearchIndex >= searchResults.length) return;
+
+            var currentNode = searchResults[currentSearchIndex];
+
+            // Remove current highlight from all
+            jQuery('.mapjs-node').removeClass('search-current');
+
+            // Select and highlight current node
+            mapModel.selectNode(currentNode.id);
+
+            // Add current highlight
+            setTimeout(function() {
+                var nodeElement = jQuery('.mapjs-node[data-nodeid="' + currentNode.id + '"]');
+                nodeElement.addClass('search-current');
+
+                // Scroll into view if needed
+                if (nodeElement.length > 0) {
+                    nodeElement[0].scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'center'
+                    });
+                }
+            }, 50);
+        }
+
+        function highlightSearchResults() {
+            searchResults.forEach(function(node) {
+                var nodeElement = jQuery('.mapjs-node[data-nodeid="' + node.id + '"]');
+                nodeElement.addClass('search-match');
+            });
+        }
+
+        function clearSearchHighlights() {
+            jQuery('.mapjs-node').removeClass('search-match search-current');
+        }
+
+        function clearSearch() {
+            clearSearchHighlights();
+            searchResults = [];
+            currentSearchIndex = -1;
+            document.getElementById('searchInput').value = '';
+            updateSearchInfo('');
+            document.getElementById('prevBtn').disabled = true;
+            document.getElementById('nextBtn').disabled = true;
+            updateStatus('Search cleared');
+        }
+
+        function updateSearchInfo(text) {
+            document.getElementById('searchInfo').textContent = text;
+        }
+
+        // Clear search highlights when nodes change
+        mapModel.addEventListener('nodeCreated', clearSearch);
+        mapModel.addEventListener('nodeRemoved', function() {
+            if (searchResults.length > 0) {
+                // Re-run the current search
+                var query = document.getElementById('searchInput').value;
+                if (query) {
+                    searchNodes();
+                }
+            }
+        });
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+
         // Initial render
         setTimeout(function() {
             renderAllMath();
@@ -1118,11 +1329,14 @@ Generated: ${new Date().toISOString()}
         window.mapModel = mapModel;
         window.idea = idea;
         window.renderMath = renderAllMath;
+        window.searchNodes = searchNodes;
+        window.clearSearch = clearSearch;
 
         console.log('========================================');
         console.log('Mind Map with Images ready!');
         console.log('Paste images with Ctrl+V in editor');
         console.log('Export to ZIP for AI-readable format');
+        console.log('Search with Ctrl+F or search box');
         console.log('========================================');
     </script>
 </body>
