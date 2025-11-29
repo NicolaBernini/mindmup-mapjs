@@ -601,15 +601,62 @@
             }
         };
 
-        // Listen to the DOM paste event (better browser compatibility)
-        container.on('paste', async function(e) {
+        // Override mapModel.paste to also check system clipboard
+        var originalPaste = mapModel.paste;
+        mapModel.paste = function(source) {
+            // Try to read from system clipboard first
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText().then(function(clipText) {
+                    try {
+                        // Check if it's our mindmap data
+                        if (clipText && clipText.indexOf('"type":"mindmap-node"') !== -1) {
+                            var clipData = JSON.parse(clipText);
+
+                            if (clipData.type === 'mindmap-node' && clipData.data) {
+                                console.log('Pasting from system clipboard (cross-tab)');
+                                updateStatus('✓ Pasted from system clipboard!');
+
+                                // Get the selected node (or use root if none selected)
+                                var selectedId = mapModel.getSelectedNodeId() || idea.id;
+
+                                // Use MapJS paste functionality
+                                var result = idea.pasteMultiple(selectedId, clipData.data);
+                                if (result && result[0]) {
+                                    mapModel.selectNode(result[0]);
+                                }
+
+                                // Re-render to show images
+                                setTimeout(renderAllMath, 100);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.log('System clipboard parse error:', e);
+                    }
+
+                    // If system clipboard doesn't have our data, use internal clipboard
+                    console.log('Using internal clipboard');
+                    originalPaste.call(mapModel, source);
+                }).catch(function(e) {
+                    console.log('System clipboard read failed, using internal:', e);
+                    // Fall back to internal clipboard
+                    originalPaste.call(mapModel, source);
+                });
+            } else {
+                // Browser doesn't support clipboard API, use internal
+                originalPaste.call(mapModel, source);
+            }
+        };
+
+        // Handle cross-tab paste
+        function handleCrossTabPaste(e) {
             // Don't interfere if we're in the editor popup
             if (document.getElementById('editorModal').classList.contains('show')) {
                 return;
             }
 
             try {
-                var clipText = e.originalEvent.clipboardData.getData('text/plain');
+                var clipText = e.originalEvent ? e.originalEvent.clipboardData.getData('text/plain') : e.clipboardData.getData('text/plain');
 
                 // Check if it's our mindmap data
                 if (clipText && clipText.indexOf('"type":"mindmap-node"') !== -1) {
@@ -622,8 +669,8 @@
                         console.log('Pasting from system clipboard (cross-tab)');
                         updateStatus('✓ Pasted from system clipboard!');
 
-                        // Get the selected node
-                        var selectedId = mapModel.getSelectedNodeId();
+                        // Get the selected node (or use root if none selected)
+                        var selectedId = mapModel.getSelectedNodeId() || idea.id;
 
                         // Use MapJS paste functionality
                         var result = idea.pasteMultiple(selectedId, clipData.data);
@@ -633,14 +680,28 @@
 
                         // Re-render to show images
                         setTimeout(renderAllMath, 100);
-                        return;
+
+                        // Refocus container
+                        container.focus();
+                        return true;
                     }
                 }
-            } catch (e) {
-                console.log('Paste error:', e);
+            } catch (err) {
+                console.log('Paste error:', err);
             }
 
-            // If not our data, let MapJS handle it normally
+            return false;
+        }
+
+        // Listen to paste on both container and document
+        container.on('paste', handleCrossTabPaste);
+
+        // Also listen on document body for cases when container is not focused
+        jQuery(document).on('paste', function(e) {
+            if (handleCrossTabPaste(e)) {
+                // Successfully pasted mindmap data, ensure container is focused
+                container.focus();
+            }
         });
 
         // ============================================================
