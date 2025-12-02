@@ -1316,13 +1316,16 @@ Generated: ${new Date().toISOString()}
 
             var currentNode = searchResults[currentSearchIndex];
 
+            // Expand all ancestors to make node visible
+            expandPathToNode(currentNode.id);
+
             // Remove current highlight from all
             jQuery('.mapjs-node').removeClass('search-current');
 
             // Select and highlight current node
             mapModel.selectNode(currentNode.id);
 
-            // Add current highlight
+            // Add current highlight (wait a bit for expand to complete)
             setTimeout(function() {
                 var nodeElement = jQuery('.mapjs-node[data-nodeid="' + currentNode.id + '"]');
                 nodeElement.addClass('search-current');
@@ -1335,14 +1338,42 @@ Generated: ${new Date().toISOString()}
                         inline: 'center'
                     });
                 }
-            }, 50);
+            }, 100);
+        }
+
+        function expandPathToNode(nodeId) {
+            // Get the path from root to this node
+            var path = idea.calculatePath(nodeId);
+
+            if (!path) return;
+
+            // Expand all ancestors in the path
+            path.forEach(function(ancestor) {
+                if (ancestor.getAttr('collapsed')) {
+                    idea.updateAttr(ancestor.id, 'collapsed', false);
+                }
+            });
+
+            // Also check the node itself (though we usually want to see its children)
+            var node = idea.findSubIdeaById(nodeId) || idea;
+            if (node && node.getAttr('collapsed')) {
+                idea.updateAttr(nodeId, 'collapsed', false);
+            }
         }
 
         function highlightSearchResults() {
+            // First, expand all paths to make nodes visible
             searchResults.forEach(function(node) {
-                var nodeElement = jQuery('.mapjs-node[data-nodeid="' + node.id + '"]');
-                nodeElement.addClass('search-match');
+                expandPathToNode(node.id);
             });
+
+            // Then highlight them (wait a bit for expand to complete)
+            setTimeout(function() {
+                searchResults.forEach(function(node) {
+                    var nodeElement = jQuery('.mapjs-node[data-nodeid="' + node.id + '"]');
+                    nodeElement.addClass('search-match');
+                });
+            }, 100);
         }
 
         function clearSearchHighlights() {
