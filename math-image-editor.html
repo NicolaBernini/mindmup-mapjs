@@ -10,6 +10,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        * {
+            font-family: 'Inter', sans-serif !important;
+        }
+        /* Keep monospace for code */
+        code, pre, textarea, .editor-textarea {
+            font-family: 'Courier New', monospace !important;
+        }
         body {
             margin: 0;
             padding: 20px;
@@ -80,6 +87,11 @@
             max-width: 600px !important;
             padding: 10px 20px !important;
             cursor: pointer;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .mapjs-node span,
+        .mapjs-node span[data-mapjs-role=title],
+        span[data-mapjs-role=title] {
             font-family: 'Inter', sans-serif !important;
         }
         .mapjs-node .katex {
@@ -387,7 +399,7 @@
     </style>
 </head>
 <body>
-    <h1>Mind Map - Math + Images</h1>
+    <h1 style="font-family: 'Inter', sans-serif;">Mind Map - Math + Images</h1>
 
     <div class="toolbar">
         <button onclick="saveToJSON()">💾 Save JSON</button>
