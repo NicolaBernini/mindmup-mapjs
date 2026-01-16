@@ -82,17 +82,41 @@
             background: #fff3e0;
         }
         .mapjs-node {
-            white-space: nowrap !important;
+            white-space: normal !important;
             min-width: 100px !important;
-            max-width: 600px !important;
+            max-width: 400px !important;
+            max-height: 150px !important;
+            overflow: hidden !important;
             padding: 10px 20px !important;
             cursor: pointer;
             font-family: 'Inter', sans-serif !important;
+            position: relative;
+        }
+        /* Fade effect for truncated content */
+        .mapjs-node.truncated::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: linear-gradient(transparent, rgba(255,255,255,0.9));
+            pointer-events: none;
+        }
+        /* Expanded mode - no height limit */
+        #container.expanded-nodes .mapjs-node {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        #container.expanded-nodes .mapjs-node.truncated::after {
+            display: none;
         }
         .mapjs-node span,
         .mapjs-node span[data-mapjs-role=title],
         span[data-mapjs-role=title] {
             font-family: 'Inter', sans-serif !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
         }
         .mapjs-node .katex {
             font-size: 1.15em;
@@ -409,6 +433,7 @@
         <button onclick="exportToMarkdown()">📝 Export MD</button>
         <button onclick="mapModel.collapseAll('toolbar')">⊟ Collapse All</button>
         <button onclick="mapModel.expandAll('toolbar')">⊞ Expand All</button>
+        <button onclick="toggleNodeMode()" id="nodeModeBtn">📐 Compact Nodes</button>
 
         <div class="search-box">
             <span>🔍</span>
@@ -535,6 +560,23 @@
 
             // Also render images
             renderAllImages();
+
+            // Mark truncated nodes for fade effect
+            markTruncatedNodes();
+        }
+
+        // Detect and mark nodes with overflow
+        function markTruncatedNodes() {
+            jQuery('.mapjs-node').each(function() {
+                var node = this;
+                var $node = jQuery(node);
+                // Check if content overflows
+                if (node.scrollHeight > node.clientHeight + 5) {
+                    $node.addClass('truncated');
+                } else {
+                    $node.removeClass('truncated');
+                }
+            });
         }
 
         // Render images in nodes
@@ -1427,6 +1469,30 @@ Generated: ${new Date().toISOString()}
         });
 
         // ============================================================
+        // NODE DISPLAY MODE TOGGLE
+        // ============================================================
+
+        var isCompactMode = true;
+
+        function toggleNodeMode() {
+            isCompactMode = !isCompactMode;
+            var btn = document.getElementById('nodeModeBtn');
+
+            if (isCompactMode) {
+                container.removeClass('expanded-nodes');
+                btn.textContent = '📐 Compact Nodes';
+                updateStatus('Compact mode: nodes have limited height');
+            } else {
+                container.addClass('expanded-nodes');
+                btn.textContent = '📏 Expanded Nodes';
+                updateStatus('Expanded mode: nodes show full content');
+            }
+
+            // Re-check truncation after mode change
+            setTimeout(markTruncatedNodes, 100);
+        }
+
+        // ============================================================
         // INITIALIZATION
         // ============================================================
 
@@ -1442,6 +1508,7 @@ Generated: ${new Date().toISOString()}
         window.renderMath = renderAllMath;
         window.searchNodes = searchNodes;
         window.clearSearch = clearSearch;
+        window.toggleNodeMode = toggleNodeMode;
 
         console.log('========================================');
         console.log('Mind Map with Images ready!');
