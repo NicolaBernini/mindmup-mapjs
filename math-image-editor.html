@@ -103,6 +103,14 @@
             background: linear-gradient(transparent, rgba(255,255,255,0.9));
             pointer-events: none;
         }
+        /* Expanded mode - no height limit */
+        #container.expanded-nodes .mapjs-node {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        #container.expanded-nodes .mapjs-node.truncated::after {
+            display: none;
+        }
         .mapjs-node span,
         .mapjs-node span[data-mapjs-role=title],
         span[data-mapjs-role=title] {
@@ -425,6 +433,7 @@
         <button onclick="exportToMarkdown()">📝 Export MD</button>
         <button onclick="mapModel.collapseAll('toolbar')">⊟ Collapse All</button>
         <button onclick="mapModel.expandAll('toolbar')">⊞ Expand All</button>
+        <button onclick="toggleNodeMode()" id="nodeModeBtn">📐 Compact Nodes</button>
 
         <div class="search-box">
             <span>🔍</span>
@@ -1460,6 +1469,30 @@ Generated: ${new Date().toISOString()}
         });
 
         // ============================================================
+        // NODE DISPLAY MODE TOGGLE
+        // ============================================================
+
+        var isCompactMode = true;
+
+        function toggleNodeMode() {
+            isCompactMode = !isCompactMode;
+            var btn = document.getElementById('nodeModeBtn');
+
+            if (isCompactMode) {
+                container.removeClass('expanded-nodes');
+                btn.textContent = '📐 Compact Nodes';
+                updateStatus('Compact mode: nodes have limited height');
+            } else {
+                container.addClass('expanded-nodes');
+                btn.textContent = '📏 Expanded Nodes';
+                updateStatus('Expanded mode: nodes show full content');
+            }
+
+            // Re-check truncation after mode change
+            setTimeout(markTruncatedNodes, 100);
+        }
+
+        // ============================================================
         // INITIALIZATION
         // ============================================================
 
@@ -1475,6 +1508,7 @@ Generated: ${new Date().toISOString()}
         window.renderMath = renderAllMath;
         window.searchNodes = searchNodes;
         window.clearSearch = clearSearch;
+        window.toggleNodeMode = toggleNodeMode;
 
         console.log('========================================');
         console.log('Mind Map with Images ready!');
