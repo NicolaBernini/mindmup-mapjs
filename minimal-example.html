@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal MindMup Example - Single Node</title>
+    <link rel="stylesheet" type="text/css" href="test/mapjs-default-styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .instructions strong {
+            color: #0066cc;
+        }
+        #container {
+            width: 100%;
+            height: 600px;
+            border: 3px solid #4CAF50;
+            background: #fafafa;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Minimal Mind Map - Single Root Node</h1>
+
+    <div class="instructions">
+        <strong>Click on the central node first</strong>, then press:<br><br>
+        • <strong>Tab</strong> - Add a child node<br>
+        • <strong>Enter</strong> - Add a sibling node<br>
+        • <strong>Space</strong> - Edit the selected node<br>
+        • <strong>Delete/Backspace</strong> - Delete node (except root)<br>
+        • <strong>Arrow keys</strong> - Navigate between nodes
+    </div>
+
+    <div class="status" id="status">
+        Status: Initializing...
+    </div>
+
+    <div id="container" tabindex="1"></div>
+
+    <!-- Load dependencies -->
+    <script src="lib/dependencies.js"></script>
+
+    <!-- Load MAPJS library files -->
+    <script src="src/mapjs.js"></script>
+    <script src="src/observable.js"></script>
+    <script src="src/url-helper.js"></script>
+    <script src="src/content.js"></script>
+    <script src="src/layout.js"></script>
+    <script src="src/clipboard.js"></script>
+    <script src="src/hammer-draggable.js"></script>
+    <script src="src/map-model.js"></script>
+    <script src="src/map-toolbar-widget.js"></script>
+    <script src="src/link-edit-widget.js"></script>
+    <script src="src/image-drop-widget.js"></script>
+    <script src="src/dom-map-view.js"></script>
+    <script src="src/dom-map-widget.js"></script>
+
+    <script>
+        // MINIMAL MIND MAP - Just one root node
+        var mindMapData = {
+            id: 1,
+            title: 'Start Here - Press Tab!'
+        };
+
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML = 'Status: ' + message;
+            console.log('Status:', message);
+        }
+
+        try {
+            updateStatus('Creating mind map...');
+
+            // Initialize the library
+            var container = jQuery('#container');
+            var idea = MAPJS.content(mindMapData);
+            var mapModel = new MAPJS.MapModel(MAPJS.DOMRender.layoutCalculator);
+
+            updateStatus('Setting up widget...');
+
+            // Set up the widget
+            container.domMapWidget(console, mapModel, false);
+
+            // Bind toolbar (for keyboard shortcuts)
+            jQuery('body').mapToolbarWidget(mapModel);
+
+            updateStatus('Loading mind map data...');
+
+            // Load the mind map
+            mapModel.setIdea(idea);
+
+            updateStatus('Selecting root node...');
+
+            // Select the root node
+            mapModel.selectNode(1);
+
+            updateStatus('Ready! Click the node and press Tab to add a child.');
+
+            // Make mapModel globally accessible
+            window.mapModel = mapModel;
+            window.idea = idea;
+
+            // Add event listeners to show what's happening
+            mapModel.addEventListener('nodeCreated', function(node) {
+                updateStatus('✓ Node created: "' + node.title + '" (ID: ' + node.id + ')');
+                console.log('Node created:', node);
+            });
+
+            mapModel.addEventListener('nodeSelectionChanged', function(nodeId, isSelected) {
+                if (isSelected) {
+                    updateStatus('Node selected: ID ' + nodeId);
+                    console.log('Selected node:', nodeId);
+                }
+            });
+
+            mapModel.addEventListener('nodeTitleChanged', function(node) {
+                updateStatus('✓ Title changed to: "' + node.title + '"');
+                console.log('Title changed:', node);
+            });
+
+            // Focus the container after a short delay
+            setTimeout(function() {
+                container.focus();
+                console.log('Container focused. Selected node:', mapModel.getSelectedNodeId());
+            }, 100);
+
+            console.log('=== Mind Map Initialized ===');
+            console.log('Root node ID:', idea.id);
+            console.log('Selected node:', mapModel.getSelectedNodeId());
+            console.log('Try: mapModel.addSubIdea() in console');
+
+        } catch (error) {
+            updateStatus('ERROR: ' + error.message);
+            console.error('Initialization error:', error);
+        }
+    </script>
+</body>
+</html>

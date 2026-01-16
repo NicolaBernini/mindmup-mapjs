@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mind Map with Math - Save/Load Support</title>
+    <link rel="stylesheet" type="text/css" href="test/mapjs-default-styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+        }
+        .toolbar {
+            background: #2196F3;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .toolbar button {
+            background: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .toolbar button:hover {
+            background: #e3f2fd;
+        }
+        .toolbar input[type="file"] {
+            display: none;
+        }
+        .toolbar label {
+            background: white;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .toolbar label:hover {
+            background: #e3f2fd;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .instructions code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #d63384;
+            font-size: 13px;
+        }
+        .status {
+            background: #fff3cd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ffc107;
+        }
+        #container {
+            width: 100%;
+            height: 550px;
+            border: 3px solid #4CAF50;
+            background: #fafafa;
+        }
+        .mapjs-node {
+            white-space: nowrap !important;
+            min-width: 100px !important;
+            max-width: 600px !important;
+            padding: 10px 20px !important;
+        }
+        .mapjs-node .katex {
+            font-size: 1.15em;
+        }
+
+        /* Drag and drop styling */
+        #container.drag-over {
+            border-color: #FF9800;
+            background: #fff3e0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mind Map with Math - Save/Load Support</h1>
+
+    <div class="toolbar">
+        <button onclick="saveToFile()">💾 Save Mind Map</button>
+        <label for="loadFile">📂 Load Mind Map</label>
+        <input type="file" id="loadFile" accept=".mup,.json" onchange="loadFromFile(event)">
+        <button onclick="exportToMarkdown()">📝 Export to Markdown</button>
+        <span style="color: white; margin-left: auto; font-size: 14px;">
+            Or drag & drop a .mup/.json file onto the map
+        </span>
+    </div>
+
+    <div class="instructions">
+        <strong>Quick Start:</strong><br>
+        1. Click the node → Press <strong>Tab</strong> → Type: <code>Math $E=mc^2$</code><br>
+        2. Build your mind map with math formulas<br>
+        3. Click <strong>💾 Save</strong> to download as .mup file<br>
+        4. Click <strong>📂 Load</strong> or drag & drop to load saved files<br><br>
+
+        <strong>Examples:</strong>
+        <code>$E=mc^2$</code> |
+        <code>$e^{i\pi}+1=0$</code> |
+        <code>$x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}$</code>
+    </div>
+
+    <div class="status" id="status">Status: Ready</div>
+
+    <div id="container" tabindex="1"></div>
+
+    <!-- Load dependencies -->
+    <script src="lib/dependencies.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Load MAPJS library files -->
+    <script src="src/mapjs.js"></script>
+    <script src="src/observable.js"></script>
+    <script src="src/url-helper.js"></script>
+    <script src="src/content.js"></script>
+    <script src="src/layout.js"></script>
+    <script src="src/clipboard.js"></script>
+    <script src="src/hammer-draggable.js"></script>
+    <script src="src/map-model.js"></script>
+    <script src="src/map-toolbar-widget.js"></script>
+    <script src="src/link-edit-widget.js"></script>
+    <script src="src/image-drop-widget.js"></script>
+    <script src="src/dom-map-view.js"></script>
+    <script src="src/dom-map-widget.js"></script>
+
+    <script>
+        function updateStatus(msg) {
+            document.getElementById('status').textContent = 'Status: ' + msg;
+            console.log('STATUS:', msg);
+        }
+
+        // Default mind map
+        var mindMapData = {
+            id: 1,
+            title: 'My Math Notes',
+            formatVersion: 3  // MapJS format version
+        };
+
+        updateStatus('Initializing...');
+
+        // Initialize
+        var container = jQuery('#container');
+        var idea = MAPJS.content(mindMapData);
+        var mapModel = new MAPJS.MapModel(MAPJS.DOMRender.layoutCalculator);
+
+        container.domMapWidget(console, mapModel, false);
+        jQuery('body').mapToolbarWidget(mapModel);
+        mapModel.setIdea(idea);
+        mapModel.selectNode(1);
+
+        // Math rendering function
+        function renderAllMath() {
+            jQuery('span[data-mapjs-role=title]').each(function() {
+                var span = jQuery(this);
+                var text = span.text();
+
+                if (text.indexOf('$') !== -1 && !span.find('.katex').length) {
+                    try {
+                        renderMathInElement(span[0], {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    } catch (e) {
+                        console.error('KaTeX error:', e);
+                    }
+                }
+            });
+        }
+
+        // Event listeners for math rendering
+        mapModel.addEventListener('nodeCreated', function(node) {
+            setTimeout(renderAllMath, 100);
+        });
+
+        mapModel.addEventListener('nodeTitleChanged', function(node) {
+            setTimeout(renderAllMath, 100);
+        });
+
+        mapModel.addEventListener('inputEnabledChanged', function(enabled) {
+            if (enabled) {
+                setTimeout(renderAllMath, 150);
+            }
+        });
+
+        // Initial render
+        setTimeout(function() {
+            renderAllMath();
+            container.focus();
+            updateStatus('Ready! Press Tab to add nodes.');
+        }, 300);
+
+        // ============================================================
+        // SAVE FUNCTIONALITY
+        // ============================================================
+
+        function saveToFile() {
+            try {
+                // Get the current idea object (this contains all the mind map data)
+                var data = JSON.stringify(idea, null, 2);
+
+                // Create a blob
+                var blob = new Blob([data], { type: 'application/json' });
+
+                // Create download link
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+
+                // Generate filename with timestamp
+                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = 'mindmap-' + timestamp + '.mup';
+
+                // Trigger download
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                updateStatus('✓ Saved as ' + a.download);
+            } catch (e) {
+                updateStatus('✗ Error saving: ' + e.message);
+                console.error('Save error:', e);
+            }
+        }
+
+        // ============================================================
+        // LOAD FUNCTIONALITY
+        // ============================================================
+
+        function loadFromFile(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+
+            updateStatus('Loading ' + file.name + '...');
+
+            var reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    // Parse the JSON
+                    var loadedData = JSON.parse(e.target.result);
+
+                    // Create new idea from loaded data
+                    idea = MAPJS.content(loadedData);
+
+                    // Load into map model
+                    mapModel.setIdea(idea);
+
+                    // Select root node
+                    mapModel.selectNode(loadedData.id || 1);
+
+                    // Render math after a delay
+                    setTimeout(function() {
+                        renderAllMath();
+                        updateStatus('✓ Loaded ' + file.name);
+                    }, 200);
+
+                } catch (err) {
+                    updateStatus('✗ Error loading file: ' + err.message);
+                    console.error('Load error:', err);
+                }
+            };
+
+            reader.onerror = function() {
+                updateStatus('✗ Error reading file');
+            };
+
+            reader.readAsText(file);
+
+            // Reset file input so same file can be loaded again
+            event.target.value = '';
+        }
+
+        // ============================================================
+        // DRAG & DROP FUNCTIONALITY
+        // ============================================================
+
+        container.on('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            jQuery(this).addClass('drag-over');
+        });
+
+        container.on('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            jQuery(this).removeClass('drag-over');
+        });
+
+        container.on('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            jQuery(this).removeClass('drag-over');
+
+            var files = e.originalEvent.dataTransfer.files;
+            if (files.length > 0) {
+                var file = files[0];
+
+                // Check if it's a .mup or .json file
+                if (file.name.match(/\.(mup|json)$/i)) {
+                    updateStatus('Loading dropped file: ' + file.name);
+
+                    var reader = new FileReader();
+                    reader.onload = function(evt) {
+                        try {
+                            var loadedData = JSON.parse(evt.target.result);
+                            idea = MAPJS.content(loadedData);
+                            mapModel.setIdea(idea);
+                            mapModel.selectNode(loadedData.id || 1);
+
+                            setTimeout(function() {
+                                renderAllMath();
+                                updateStatus('✓ Loaded ' + file.name);
+                            }, 200);
+                        } catch (err) {
+                            updateStatus('✗ Error: ' + err.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                } else {
+                    updateStatus('✗ Please drop a .mup or .json file');
+                }
+            }
+        });
+
+        // ============================================================
+        // MARKDOWN EXPORT (BONUS)
+        // ============================================================
+
+        function exportToMarkdown() {
+            try {
+                var markdown = generateMarkdown(idea, 0);
+
+                var blob = new Blob([markdown], { type: 'text/markdown' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+
+                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                a.download = 'mindmap-' + timestamp + '.md';
+
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                updateStatus('✓ Exported to Markdown');
+            } catch (e) {
+                updateStatus('✗ Export error: ' + e.message);
+                console.error('Export error:', e);
+            }
+        }
+
+        function generateMarkdown(node, level) {
+            var indent = '  '.repeat(level);
+            var marker = level === 0 ? '# ' : '- ';
+            var md = indent + marker + node.title + '\n';
+
+            if (node.ideas) {
+                // Sort children by their keys
+                var keys = Object.keys(node.ideas).map(Number).sort(function(a, b) {
+                    return Math.abs(a) - Math.abs(b);
+                });
+
+                keys.forEach(function(key) {
+                    md += generateMarkdown(node.ideas[key], level + 1);
+                });
+            }
+
+            return md;
+        }
+
+        // Make accessible from console
+        window.mapModel = mapModel;
+        window.idea = idea;
+        window.renderMath = renderAllMath;
+        window.saveToFile = saveToFile;
+
+        console.log('========================================');
+        console.log('Mind Map with Save/Load initialized!');
+        console.log('Commands:');
+        console.log('  saveToFile() - Save current map');
+        console.log('  renderMath() - Re-render math');
+        console.log('========================================');
+    </script>
+</body>
+</html>

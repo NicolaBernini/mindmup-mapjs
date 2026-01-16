@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple MindMup MapJS Example</title>
+    <link rel="stylesheet" type="text/css" href="test/mapjs-default-styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        #controls {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        #controls button {
+            padding: 8px 15px;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        #container {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ccc;
+            background: #fff;
+            outline: none; /* Remove focus outline */
+        }
+        #container:focus {
+            border-color: #4CAF50; /* Show green border when focused */
+        }
+        h1 {
+            margin: 0 0 10px 0;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple MindMup MapJS Example</h1>
+
+    <div class="instructions">
+        <strong>Keyboard Shortcuts:</strong><br>
+        • <strong>Space</strong> or <strong>F2</strong>: Edit node<br>
+        • <strong>Tab</strong>: Add child node<br>
+        • <strong>Enter</strong>: Add sibling node<br>
+        • <strong>Delete/Backspace</strong>: Delete node<br>
+        • <strong>Arrow keys</strong>: Navigate<br>
+        • <strong>Ctrl/Cmd + Z</strong>: Undo<br>
+        • <strong>Ctrl/Cmd + Y</strong>: Redo
+    </div>
+
+    <div id="controls">
+        <button onclick="mapModel.addSubIdea()">Add Child</button>
+        <button onclick="mapModel.addSiblingIdea()">Add Sibling</button>
+        <button onclick="mapModel.editNode()">Edit</button>
+        <button onclick="mapModel.removeSubIdea()">Delete</button>
+        <button onclick="mapModel.undo()">Undo</button>
+        <button onclick="mapModel.redo()">Redo</button>
+        <button onclick="mapModel.resetView()">Reset View</button>
+        <button onclick="exportJSON()">Export JSON</button>
+    </div>
+
+    <div id="container"></div>
+
+    <!-- Load dependencies -->
+    <script src="lib/dependencies.js"></script>
+
+    <!-- Load MAPJS library files -->
+    <script src="src/mapjs.js"></script>
+    <script src="src/observable.js"></script>
+    <script src="src/url-helper.js"></script>
+    <script src="src/content.js"></script>
+    <script src="src/layout.js"></script>
+    <script src="src/clipboard.js"></script>
+    <script src="src/hammer-draggable.js"></script>
+    <script src="src/map-model.js"></script>
+    <script src="src/map-toolbar-widget.js"></script>
+    <script src="src/link-edit-widget.js"></script>
+    <script src="src/image-drop-widget.js"></script>
+    <script src="src/dom-map-view.js"></script>
+    <script src="src/dom-map-widget.js"></script>
+
+    <script>
+        // Create a simple mind map structure
+        var mindMapData = {
+            id: 1,
+            title: 'My First Mind Map',
+            ideas: {
+                1: {
+                    id: 2,
+                    title: 'Child 1',
+                    ideas: {
+                        1: {
+                            id: 3,
+                            title: 'Grandchild 1-1'
+                        },
+                        2: {
+                            id: 4,
+                            title: 'Grandchild 1-2'
+                        }
+                    }
+                },
+                2: {
+                    id: 5,
+                    title: 'Child 2'
+                },
+                -1: {
+                    id: 6,
+                    title: 'Child 3 (left side)'
+                }
+            }
+        };
+
+        // Initialize the library
+        var container = jQuery('#container');
+        var idea = MAPJS.content(mindMapData);
+        var mapModel = new MAPJS.MapModel(MAPJS.DOMRender.layoutCalculator);
+
+        // Set up the widget
+        container.domMapWidget(console, mapModel, false);
+
+        // Bind toolbar buttons to map model
+        jQuery('body').mapToolbarWidget(mapModel);
+
+        // Load the mind map
+        mapModel.setIdea(idea);
+
+        // IMPORTANT: Select the root node so operations work
+        mapModel.selectNode(1);
+
+        // Focus the container so keyboard shortcuts work
+        container.focus();
+
+        // Make mapModel globally accessible for controls
+        window.mapModel = mapModel;
+
+        // Export function
+        function exportJSON() {
+            var data = JSON.stringify(idea, null, 2);
+            console.log('Mind Map Data:', data);
+            alert('Mind map exported to console! Open developer tools (F12) to see the JSON.');
+        }
+
+        console.log('Mind Map initialized successfully!');
+        console.log('Root node selected:', mapModel.getSelectedNodeId());
+        console.log('You can access the mapModel via: window.mapModel');
+        console.log('Get current data with: window.mapModel.getCurrentLayout()');
+    </script>
+</body>
+</html>
