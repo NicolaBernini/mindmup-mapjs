@@ -302,6 +302,34 @@ MAPJS.MapModel = function (layoutCalculatorArg, selectAllTitles, clipboardProvid
 		self.isInCollapse = false;
 		self.dispatchEvent('layoutChangeComplete');
 	};
+	this.collapseAll = function (source) {
+		if (!isInputEnabled) {
+			return;
+		}
+		analytic('collapseAll', source);
+		self.isInCollapse = true;
+		idea.traverse(function (contentIdea) {
+			if (contentIdea.ideas && _.size(contentIdea.ideas) > 0) {
+				idea.updateAttr(contentIdea.id, 'collapsed', true);
+			}
+		});
+		self.isInCollapse = false;
+		self.dispatchEvent('layoutChangeComplete');
+	};
+	this.expandAll = function (source) {
+		if (!isInputEnabled) {
+			return;
+		}
+		analytic('expandAll', source);
+		self.isInCollapse = true;
+		idea.traverse(function (contentIdea) {
+			if (contentIdea.attr && contentIdea.attr.collapsed) {
+				idea.updateAttr(contentIdea.id, 'collapsed', false);
+			}
+		});
+		self.isInCollapse = false;
+		self.dispatchEvent('layoutChangeComplete');
+	};
 	this.updateStyle = function (source, prop, value) {
 		/*jslint eqeq:true */
 		if (!isEditingEnabled) {
