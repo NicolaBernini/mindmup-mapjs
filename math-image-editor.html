@@ -1590,6 +1590,18 @@ Generated: ${new Date().toISOString()}
         }
 
         // ============================================================
+        // KEYBOARD SHORTCUTS
+        // ============================================================
+
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+S / Cmd+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                saveToJSON();
+            }
+        });
+
+        // ============================================================
         // INITIALIZATION
         // ============================================================
 
@@ -1597,7 +1609,7 @@ Generated: ${new Date().toISOString()}
         setTimeout(function() {
             renderAllMath();
             container.focus();
-            updateStatus('Ready! Press Space to edit, Ctrl+V to paste images.');
+            updateStatus('Ready! Space to edit, Ctrl+S to save, Ctrl+V to paste images.');
         }, 300);
 
         window.mapModel = mapModel;
