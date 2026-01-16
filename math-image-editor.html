@@ -406,6 +406,20 @@
             font-size: 13px;
             font-weight: normal;
         }
+        .file-path-display {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 3px;
+            font-size: 12px;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .file-path-display #currentFileName {
+            font-weight: bold;
+        }
 
         /* Highlight search matches */
         .mapjs-node.search-match {
@@ -426,7 +440,8 @@
     <h1 style="font-family: 'Inter', sans-serif;">Mind Map - Math + Images</h1>
 
     <div class="toolbar">
-        <button onclick="saveToJSON()">💾 Save JSON</button>
+        <button onclick="saveToJSON()">💾 Save</button>
+        <button onclick="saveAsJSON()">💾 Save As...</button>
         <button onclick="exportToZIP()">📦 Export ZIP</button>
         <label for="loadFile">📂 Load</label>
         <input type="file" id="loadFile" accept=".mup,.json,.zip" onchange="loadFromFile(event)">
@@ -444,6 +459,9 @@
             <span class="search-results-info" id="searchInfo"></span>
         </div>
 
+        <span class="file-path-display" id="filePathDisplay" title="Current file">
+            📄 <span id="currentFileName">Untitled.mup</span>
+        </span>
         <span style="color: white; margin-left: auto; font-size: 13px;">
             <strong>Space/F2</strong> to edit | <strong>Ctrl+C/V</strong> copy/paste (works across tabs!)
         </span>
@@ -1012,23 +1030,92 @@
         });
 
         // ============================================================
-        // SAVE TO JSON
+        // SAVE TO JSON (with File System Access API support)
         // ============================================================
 
-        function saveToJSON() {
+        var currentFileHandle = null;
+        var currentFileName = 'Untitled.mup';
+
+        function updateFileDisplay(name) {
+            currentFileName = name;
+            document.getElementById('currentFileName').textContent = name;
+            document.getElementById('filePathDisplay').title = name;
+        }
+
+        // Check if File System Access API is supported
+        var hasFileSystemAccess = 'showSaveFilePicker' in window;
+
+        async function saveToJSON() {
             try {
                 var data = JSON.stringify(idea, null, 2);
+
+                // If we have a file handle, save directly to it
+                if (hasFileSystemAccess && currentFileHandle) {
+                    try {
+                        const writable = await currentFileHandle.createWritable();
+                        await writable.write(data);
+                        await writable.close();
+                        updateStatus('✓ Saved to ' + currentFileName);
+                        return;
+                    } catch (err) {
+                        // Permission denied or file moved - fall through to Save As
+                        console.log('Direct save failed, using Save As:', err);
+                        currentFileHandle = null;
+                    }
+                }
+
+                // No file handle - use Save As
+                await saveAsJSON();
+            } catch (e) {
+                updateStatus('✗ Error: ' + e.message);
+            }
+        }
+
+        async function saveAsJSON() {
+            try {
+                var data = JSON.stringify(idea, null, 2);
+
+                if (hasFileSystemAccess) {
+                    // Use File System Access API
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: currentFileName,
+                            types: [{
+                                description: 'MindMup Files',
+                                accept: { 'application/json': ['.mup', '.json'] }
+                            }]
+                        });
+
+                        const writable = await handle.createWritable();
+                        await writable.write(data);
+                        await writable.close();
+
+                        // Remember the handle for future saves
+                        currentFileHandle = handle;
+                        updateFileDisplay(handle.name);
+                        updateStatus('✓ Saved as ' + handle.name);
+                        return;
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            updateStatus('Save cancelled');
+                            return;
+                        }
+                        // Fall through to legacy download
+                        console.log('File picker failed, using download:', err);
+                    }
+                }
+
+                // Fallback: legacy download approach
                 var blob = new Blob([data], { type: 'application/json' });
                 var url = URL.createObjectURL(blob);
                 var a = document.createElement('a');
                 a.href = url;
-                var timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-                a.download = 'mindmap-' + timestamp + '.mup';
+                a.download = currentFileName;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                updateStatus('✓ Saved as ' + a.download);
+                updateStatus('✓ Downloaded as ' + currentFileName);
             } catch (e) {
                 updateStatus('✗ Error: ' + e.message);
             }
@@ -1165,6 +1252,11 @@ Generated: ${new Date().toISOString()}
                     idea = MAPJS.content(loadedData);
                     mapModel.setIdea(idea);
                     mapModel.selectNode(loadedData.id || 1);
+
+                    // Update file display (clear handle since we loaded via file input)
+                    currentFileHandle = null;
+                    updateFileDisplay(file.name);
+
                     setTimeout(function() {
                         renderAllMath();
                         updateStatus('✓ Loaded ' + file.name);
@@ -1216,6 +1308,11 @@ Generated: ${new Date().toISOString()}
                 idea = MAPJS.content(loadedData);
                 mapModel.setIdea(idea);
                 mapModel.selectNode(loadedData.id || 1);
+
+                // Update file display - use .mup extension for saving
+                currentFileHandle = null;
+                var mupName = file.name.replace(/\.zip$/i, '.mup');
+                updateFileDisplay(mupName);
 
                 setTimeout(function() {
                     renderAllMath();
@@ -1509,6 +1606,8 @@ Generated: ${new Date().toISOString()}
         window.searchNodes = searchNodes;
         window.clearSearch = clearSearch;
         window.toggleNodeMode = toggleNodeMode;
+        window.saveToJSON = saveToJSON;
+        window.saveAsJSON = saveAsJSON;
 
         console.log('========================================');
         console.log('Mind Map with Images ready!');
