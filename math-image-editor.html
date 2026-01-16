@@ -407,6 +407,8 @@
         <label for="loadFile">📂 Load</label>
         <input type="file" id="loadFile" accept=".mup,.json,.zip" onchange="loadFromFile(event)">
         <button onclick="exportToMarkdown()">📝 Export MD</button>
+        <button onclick="mapModel.collapseAll('toolbar')">⊟ Collapse All</button>
+        <button onclick="mapModel.expandAll('toolbar')">⊞ Expand All</button>
 
         <div class="search-box">
             <span>🔍</span>
@@ -477,7 +479,7 @@
     <script src="src/layout.js"></script>
     <script src="src/clipboard.js"></script>
     <script src="src/hammer-draggable.js"></script>
-    <script src="src/map-model.js"></script>
+    <script src="src/map-model.js?v=2"></script>
     <script src="src/map-toolbar-widget.js"></script>
     <script src="src/link-edit-widget.js"></script>
     <script src="src/image-drop-widget.js"></script>
