@@ -82,17 +82,33 @@
             background: #fff3e0;
         }
         .mapjs-node {
-            white-space: nowrap !important;
+            white-space: normal !important;
             min-width: 100px !important;
-            max-width: 600px !important;
+            max-width: 400px !important;
+            max-height: 150px !important;
+            overflow: hidden !important;
             padding: 10px 20px !important;
             cursor: pointer;
             font-family: 'Inter', sans-serif !important;
+            position: relative;
+        }
+        /* Fade effect for truncated content */
+        .mapjs-node.truncated::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            background: linear-gradient(transparent, rgba(255,255,255,0.9));
+            pointer-events: none;
         }
         .mapjs-node span,
         .mapjs-node span[data-mapjs-role=title],
         span[data-mapjs-role=title] {
             font-family: 'Inter', sans-serif !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
         }
         .mapjs-node .katex {
             font-size: 1.15em;
@@ -535,6 +551,23 @@
 
             // Also render images
             renderAllImages();
+
+            // Mark truncated nodes for fade effect
+            markTruncatedNodes();
+        }
+
+        // Detect and mark nodes with overflow
+        function markTruncatedNodes() {
+            jQuery('.mapjs-node').each(function() {
+                var node = this;
+                var $node = jQuery(node);
+                // Check if content overflows
+                if (node.scrollHeight > node.clientHeight + 5) {
+                    $node.addClass('truncated');
+                } else {
+                    $node.removeClass('truncated');
+                }
+            });
         }
 
         // Render images in nodes
