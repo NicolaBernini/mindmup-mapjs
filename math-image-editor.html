@@ -449,6 +449,7 @@
         <button onclick="mapModel.collapseAll('toolbar')">⊟ Collapse All</button>
         <button onclick="mapModel.expandAll('toolbar')">⊞ Expand All</button>
         <button onclick="toggleNodeMode()" id="nodeModeBtn">📐 Compact Nodes</button>
+        <button onclick="copyNodeLink()">🔗 Copy Link</button>
 
         <div class="search-box">
             <span>🔍</span>
@@ -1326,31 +1327,110 @@ Generated: ${new Date().toISOString()}
             }
         }
 
-        // Drag & drop
-        container.on('dragover', function(e) {
-            e.preventDefault();
-            jQuery(this).addClass('drag-over');
-        });
-        container.on('dragleave', function(e) {
-            e.preventDefault();
-            jQuery(this).removeClass('drag-over');
-        });
-        container.on('drop', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            jQuery(this).removeClass('drag-over');
-            var files = e.originalEvent.dataTransfer.files;
-            if (files.length > 0) {
+        // Drag & drop for .mup/.json/.zip files
+        // Use capture phase to intercept before MapJS handlers
+        var containerEl = container[0];
+
+        containerEl.addEventListener('dragover', function(e) {
+            var files = e.dataTransfer.files;
+            var items = e.dataTransfer.items;
+
+            // Check if dragging a mindmap file
+            var isMindmapFile = false;
+            if (files && files.length > 0 && files[0].name) {
+                isMindmapFile = files[0].name.match(/\.(mup|json|zip)$/i);
+            } else if (items && items.length > 0) {
+                // Sometimes files aren't available during dragover
+                isMindmapFile = true; // Allow drop, we'll check on drop
+            }
+
+            if (isMindmapFile) {
+                e.preventDefault();
+                e.stopPropagation();
+                container.addClass('drag-over');
+            }
+        }, true);
+
+        containerEl.addEventListener('dragleave', function(e) {
+            container.removeClass('drag-over');
+        }, true);
+
+        containerEl.addEventListener('drop', function(e) {
+            var dataTransfer = e.dataTransfer;
+            var files = dataTransfer.files;
+
+            // Check if it's a mindmap file
+            if (files && files.length > 0) {
                 var file = files[0];
                 if (file.name.match(/\.(mup|json|zip)$/i)) {
-                    if (file.name.endsWith('.zip')) {
-                        loadFromZIP(file);
-                    } else {
-                        loadFromJSON(file);
+                    // It's a mindmap file - intercept completely
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    container.removeClass('drag-over');
+
+                    // Handle the file asynchronously
+                    handleDroppedMindmapFile(dataTransfer, file);
+                    return false;
+                }
+            }
+            // Not a mindmap file - let other handlers process it
+        }, true); // capture phase
+
+        async function handleDroppedMindmapFile(dataTransfer, file) {
+            // For ZIP files, use regular file loading (no handle needed)
+            if (file.name.endsWith('.zip')) {
+                loadFromZIP(file);
+                return;
+            }
+
+            // Try to get file handle for .mup/.json files (Chrome/Edge only)
+            var items = dataTransfer.items;
+            if (hasFileSystemAccess && items && items.length > 0) {
+                var item = items[0];
+                if (item.getAsFileSystemHandle) {
+                    try {
+                        var handle = await item.getAsFileSystemHandle();
+                        if (handle && handle.kind === 'file') {
+                            await loadFromFileHandle(handle);
+                            return;
+                        }
+                    } catch (err) {
+                        console.log('Could not get file handle, falling back:', err);
                     }
                 }
             }
-        });
+
+            // Fallback: load without handle
+            loadFromJSON(file);
+        }
+
+        // Load from file handle (preserves handle for saving)
+        async function loadFromFileHandle(handle) {
+            try {
+                updateStatus('Loading ' + handle.name + '...');
+
+                var file = await handle.getFile();
+                var content = await file.text();
+                var loadedData = JSON.parse(content);
+
+                idea = MAPJS.content(loadedData);
+                mapModel.setIdea(idea);
+                mapModel.selectNode(loadedData.id || 1);
+
+                // Store handle for future saves
+                currentFileHandle = handle;
+                updateFileDisplay(handle.name);
+
+                setTimeout(function() {
+                    renderAllMath();
+                    updateStatus('✓ Loaded ' + handle.name + ' (drag & drop - saves enabled)');
+                }, 200);
+            } catch (err) {
+                updateStatus('✗ Error: ' + err.message);
+                console.error('Load error:', err);
+            }
+        }
 
         // Markdown export (same as before)
         function exportToMarkdown() {
@@ -1603,6 +1683,87 @@ Generated: ${new Date().toISOString()}
         });
 
         // ============================================================
+        // URL-BASED NODE NAVIGATION
+        // ============================================================
+
+        var isUpdatingUrl = false;
+
+        // Update URL hash when node selection changes
+        mapModel.addEventListener('nodeSelectionChanged', function(nodeId) {
+            if (isUpdatingUrl) return;
+
+            // Update URL without triggering page reload
+            var newHash = '#node=' + nodeId;
+            if (window.location.hash !== newHash) {
+                history.replaceState(null, '', newHash);
+            }
+        });
+
+        // Navigate to node from URL hash
+        function navigateToNodeFromUrl() {
+            var hash = window.location.hash;
+            if (hash && hash.startsWith('#node=')) {
+                var nodeId = hash.substring(6); // Remove '#node='
+
+                // Try to parse as number if it looks like one
+                if (/^\d+$/.test(nodeId)) {
+                    nodeId = parseInt(nodeId, 10);
+                }
+
+                // Check if node exists
+                var node = idea.findSubIdeaById(nodeId) || (nodeId == idea.id ? idea : null);
+                if (node) {
+                    isUpdatingUrl = true;
+
+                    // Expand path to make node visible
+                    expandPathToNode(nodeId);
+
+                    // Select the node
+                    mapModel.selectNode(nodeId);
+
+                    // Center on node after a short delay
+                    setTimeout(function() {
+                        var nodeElement = jQuery('.mapjs-node[data-nodeid="' + nodeId + '"]');
+                        if (nodeElement.length > 0) {
+                            nodeElement[0].scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'center',
+                                inline: 'center'
+                            });
+                        }
+                        isUpdatingUrl = false;
+                    }, 300);
+
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Handle browser back/forward navigation
+        window.addEventListener('hashchange', function() {
+            navigateToNodeFromUrl();
+        });
+
+        // Copy link to current node
+        function copyNodeLink() {
+            var nodeId = mapModel.getSelectedNodeId();
+            if (!nodeId) {
+                updateStatus('No node selected');
+                return;
+            }
+
+            var url = window.location.origin + window.location.pathname + '#node=' + nodeId;
+
+            navigator.clipboard.writeText(url).then(function() {
+                updateStatus('✓ Link copied: #node=' + nodeId);
+            }).catch(function(err) {
+                // Fallback for older browsers
+                prompt('Copy this link:', url);
+            });
+        }
+
+        // ============================================================
         // INITIALIZATION
         // ============================================================
 
@@ -1610,7 +1771,11 @@ Generated: ${new Date().toISOString()}
         setTimeout(function() {
             renderAllMath();
             container.focus();
-            updateStatus('Ready! Space to edit, Ctrl+S to save, Ctrl+V to paste images.');
+
+            // Navigate to node from URL if specified
+            if (!navigateToNodeFromUrl()) {
+                updateStatus('Ready! Space to edit, Ctrl+S to save, Ctrl+V to paste images.');
+            }
         }, 300);
 
         window.mapModel = mapModel;
@@ -1621,6 +1786,7 @@ Generated: ${new Date().toISOString()}
         window.toggleNodeMode = toggleNodeMode;
         window.saveToJSON = saveToJSON;
         window.saveAsJSON = saveAsJSON;
+        window.copyNodeLink = copyNodeLink;
 
         console.log('========================================');
         console.log('Mind Map with Images ready!');
