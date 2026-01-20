@@ -442,8 +442,10 @@
     <div class="toolbar">
         <button onclick="saveToJSON()">💾 Save</button>
         <button onclick="saveAsJSON()">💾 Save As...</button>
+        <button onclick="saveAsProject()">📁 Save Project...</button>
+        <button onclick="openProject()">📂 Open Project</button>
         <button onclick="exportToZIP()">📦 Export ZIP</button>
-        <label for="loadFile">📂 Load</label>
+        <label for="loadFile">📂 Load File</label>
         <input type="file" id="loadFile" accept=".mup,.json,.zip" onchange="loadFromFile(event)">
         <button onclick="exportToMarkdown()">📝 Export MD</button>
         <button onclick="mapModel.collapseAll('toolbar')">⊟ Collapse All</button>
@@ -1039,9 +1041,18 @@
 
         function updateFileDisplay(name) {
             currentFileName = name;
-            document.getElementById('currentFileName').textContent = name;
-            document.getElementById('filePathDisplay').title = name;
-            document.title = name + ' - MindMup';
+            var displayName = name;
+            var titleSuffix = ' - MindMup';
+
+            if (isProjectMode && currentProjectDir) {
+                displayName = '📁 ' + currentProjectDir.name + '/' + name;
+                titleSuffix = ' - MindMup Project';
+            }
+
+            document.getElementById('currentFileName').textContent = displayName;
+            document.getElementById('filePathDisplay').title = isProjectMode ?
+                'Project: ' + currentProjectDir.name + '/' + name : name;
+            document.title = name + titleSuffix;
         }
 
         // Check if File System Access API is supported
@@ -1049,6 +1060,12 @@
 
         async function saveToJSON() {
             try {
+                // If in project mode, use project save
+                if (isProjectMode && currentProjectDir) {
+                    await saveProject();
+                    return;
+                }
+
                 var data = JSON.stringify(idea, null, 2);
 
                 // If we have a file handle, save directly to it
@@ -1120,6 +1137,227 @@
                 updateStatus('✓ Downloaded as ' + currentFileName);
             } catch (e) {
                 updateStatus('✗ Error: ' + e.message);
+            }
+        }
+
+        // ============================================================
+        // PROJECT MODE (Directory-based with external assets)
+        // ============================================================
+
+        var currentProjectDir = null;
+        var isProjectMode = false;
+
+        async function saveAsProject() {
+            if (!hasFileSystemAccess || !('showDirectoryPicker' in window)) {
+                updateStatus('⚠️ Project mode requires Chrome/Edge browser');
+                return;
+            }
+
+            try {
+                // Ask user to select a project directory
+                const dirHandle = await window.showDirectoryPicker({
+                    mode: 'readwrite'
+                });
+
+                currentProjectDir = dirHandle;
+                isProjectMode = true;
+
+                await saveProject();
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    updateStatus('Project save cancelled');
+                    return;
+                }
+                updateStatus('✗ Error: ' + err.message);
+                console.error('Project save error:', err);
+            }
+        }
+
+        async function saveProject() {
+            if (!currentProjectDir) {
+                await saveAsProject();
+                return;
+            }
+
+            try {
+                updateStatus('Saving project...');
+
+                // Create assets folder if it doesn't exist
+                let assetsDir;
+                try {
+                    assetsDir = await currentProjectDir.getDirectoryHandle('assets', { create: true });
+                } catch (err) {
+                    console.error('Could not create assets folder:', err);
+                    throw new Error('Could not create assets folder');
+                }
+
+                // Clone the idea to modify for export
+                var exportData = JSON.parse(JSON.stringify(idea));
+                var imageCount = 0;
+
+                // Process nodes: extract images and save to assets folder
+                async function processNode(node) {
+                    if (node.attr && node.attr.image && node.attr.image.data) {
+                        var imgData = node.attr.image;
+                        var filename = imgData.filename || ('image-' + Date.now() + '-' + imageCount + '.png');
+                        imageCount++;
+
+                        // Extract base64 data
+                        var base64Data = imgData.data.split(',')[1];
+                        var binaryData = atob(base64Data);
+                        var bytes = new Uint8Array(binaryData.length);
+                        for (var i = 0; i < binaryData.length; i++) {
+                            bytes[i] = binaryData.charCodeAt(i);
+                        }
+
+                        // Save image to assets folder
+                        try {
+                            var imageFileHandle = await assetsDir.getFileHandle(filename, { create: true });
+                            var writable = await imageFileHandle.createWritable();
+                            await writable.write(bytes);
+                            await writable.close();
+                        } catch (err) {
+                            console.error('Could not save image:', filename, err);
+                        }
+
+                        // Replace data URI with path reference
+                        node.attr.image = {
+                            filename: filename,
+                            path: 'assets/' + filename,
+                            timestamp: imgData.timestamp,
+                            size: imgData.size
+                        };
+                    }
+
+                    if (node.ideas) {
+                        for (var key of Object.keys(node.ideas)) {
+                            await processNode(node.ideas[key]);
+                        }
+                    }
+                }
+
+                await processNode(exportData);
+
+                // Add project metadata
+                exportData.projectMode = true;
+                exportData.savedAt = new Date().toISOString();
+
+                // Save the .mup file
+                var mupFilename = currentFileName.endsWith('.mup') ? currentFileName : currentFileName.replace(/\.[^.]+$/, '.mup');
+                if (!mupFilename.endsWith('.mup')) mupFilename += '.mup';
+
+                var mupFileHandle = await currentProjectDir.getFileHandle(mupFilename, { create: true });
+                var writable = await mupFileHandle.createWritable();
+                await writable.write(JSON.stringify(exportData, null, 2));
+                await writable.close();
+
+                // Update display
+                updateFileDisplay(mupFilename);
+                updateStatus('✓ Project saved: ' + currentProjectDir.name + '/' + mupFilename + ' (' + imageCount + ' images in assets/)');
+
+            } catch (err) {
+                updateStatus('✗ Project save error: ' + err.message);
+                console.error('Project save error:', err);
+            }
+        }
+
+        async function openProject() {
+            if (!hasFileSystemAccess || !('showDirectoryPicker' in window)) {
+                updateStatus('⚠️ Project mode requires Chrome/Edge browser');
+                return;
+            }
+
+            try {
+                // Ask user to select a project directory
+                const dirHandle = await window.showDirectoryPicker({
+                    mode: 'readwrite'
+                });
+
+                updateStatus('Opening project from ' + dirHandle.name + '...');
+
+                // Find .mup file in the directory
+                var mupFileHandle = null;
+                var mupFileName = null;
+
+                for await (const [name, handle] of dirHandle.entries()) {
+                    if (handle.kind === 'file' && name.match(/\.(mup|json)$/i)) {
+                        mupFileHandle = handle;
+                        mupFileName = name;
+                        break;
+                    }
+                }
+
+                if (!mupFileHandle) {
+                    updateStatus('✗ No .mup file found in selected folder');
+                    return;
+                }
+
+                // Read the .mup file
+                var file = await mupFileHandle.getFile();
+                var content = await file.text();
+                var loadedData = JSON.parse(content);
+
+                // Load images from assets folder
+                let assetsDir = null;
+                try {
+                    assetsDir = await dirHandle.getDirectoryHandle('assets');
+                } catch (err) {
+                    console.log('No assets folder found, images may be embedded');
+                }
+
+                // Process nodes: load images from assets folder
+                async function processNode(node) {
+                    if (node.attr && node.attr.image && node.attr.image.path && !node.attr.image.data) {
+                        var imagePath = node.attr.image.path;
+                        var filename = node.attr.image.filename || imagePath.split('/').pop();
+
+                        if (assetsDir) {
+                            try {
+                                var imageFileHandle = await assetsDir.getFileHandle(filename);
+                                var imageFile = await imageFileHandle.getFile();
+                                var arrayBuffer = await imageFile.arrayBuffer();
+                                var base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+                                var mimeType = filename.match(/\.png$/i) ? 'image/png' : 'image/jpeg';
+                                node.attr.image.data = 'data:' + mimeType + ';base64,' + base64;
+                            } catch (err) {
+                                console.error('Could not load image:', filename, err);
+                            }
+                        }
+                    }
+
+                    if (node.ideas) {
+                        for (var key of Object.keys(node.ideas)) {
+                            await processNode(node.ideas[key]);
+                        }
+                    }
+                }
+
+                await processNode(loadedData);
+
+                // Set the idea
+                idea = MAPJS.content(loadedData);
+                mapModel.setIdea(idea);
+                mapModel.selectNode(loadedData.id || 1);
+
+                // Remember project directory for future saves
+                currentProjectDir = dirHandle;
+                isProjectMode = true;
+                currentFileHandle = null; // Clear single-file handle
+
+                updateFileDisplay(mupFileName);
+
+                setTimeout(function() {
+                    renderAllMath();
+                    updateStatus('✓ Project loaded: ' + dirHandle.name + '/' + mupFileName);
+                }, 200);
+
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    updateStatus('Open project cancelled');
+                    return;
+                }
+                updateStatus('✗ Error: ' + err.message);
+                console.error('Open project error:', err);
             }
         }
 
@@ -1786,12 +2024,15 @@ Generated: ${new Date().toISOString()}
         window.toggleNodeMode = toggleNodeMode;
         window.saveToJSON = saveToJSON;
         window.saveAsJSON = saveAsJSON;
+        window.saveAsProject = saveAsProject;
+        window.openProject = openProject;
         window.copyNodeLink = copyNodeLink;
 
         console.log('========================================');
         console.log('Mind Map with Images ready!');
         console.log('Paste images with Ctrl+V in editor');
         console.log('Export to ZIP for AI-readable format');
+        console.log('Project mode: Save/Open Project for external assets');
         console.log('Search with Ctrl+F or search box');
         console.log('========================================');
     </script>
