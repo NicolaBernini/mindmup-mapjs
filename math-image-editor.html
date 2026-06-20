@@ -11,16 +11,16 @@
 
     <style>
         *:not(.katex *):not(.katex) {
-            font-family: 'Inter', sans-serif !important;
+            font-family: 'OpenDyslexic', 'Inter', sans-serif !important;
         }
-        /* Keep monospace for code */
-        code, pre, textarea, .editor-textarea {
+        /* Keep monospace for code and the node editor (LaTeX/markdown source) */
+        code, pre, .editor-textarea {
             font-family: 'Courier New', monospace !important;
         }
         body {
             margin: 0;
             padding: 20px;
-            font-family: 'Inter', sans-serif;
+            font-family: 'OpenDyslexic', 'Inter', sans-serif;
         }
         h1 {
             margin: 0 0 10px 0;
@@ -89,7 +89,7 @@
             overflow: hidden !important;
             padding: 10px 20px !important;
             cursor: pointer;
-            font-family: 'Inter', sans-serif !important;
+            font-family: 'OpenDyslexic', 'Inter', sans-serif !important;
             position: relative;
         }
         /* Fade effect for truncated content */
@@ -114,7 +114,7 @@
         .mapjs-node span,
         .mapjs-node span[data-mapjs-role=title],
         span[data-mapjs-role=title] {
-            font-family: 'Inter', sans-serif !important;
+            font-family: 'OpenDyslexic', 'Inter', sans-serif !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
         }
@@ -284,7 +284,7 @@
             font-size: 18px;
             line-height: 1.6;
             word-wrap: break-word;
-            font-family: 'Inter', sans-serif;
+            font-family: 'OpenDyslexic', 'Inter', sans-serif;
         }
 
         /* Markdown styling in preview */
@@ -437,7 +437,7 @@
     </style>
 </head>
 <body>
-    <h1 style="font-family: 'Inter', sans-serif;">Mind Map - Math + Images</h1>
+    <h1 style="font-family: 'OpenDyslexic', 'Inter', sans-serif;">Mind Map - Math + Images</h1>
 
     <div class="toolbar">
         <button onclick="saveToJSON()">💾 Save</button>
@@ -473,6 +473,14 @@
     <div class="status" id="status">Status: Ready</div>
 
     <div id="container" tabindex="1"></div>
+
+    <div class="notes-sidebar" id="notesSidebar">
+        <div class="notes-sidebar-header">
+            <h3>Notes</h3>
+            <button class="notes-close">&times;</button>
+        </div>
+        <textarea placeholder="Type your notes here..."></textarea>
+    </div>
 
     <!-- Editor Modal -->
     <div id="editorModal" class="editor-modal">
@@ -531,6 +539,7 @@
     <script src="src/image-drop-widget.js"></script>
     <script src="src/dom-map-view.js"></script>
     <script src="src/dom-map-widget.js"></script>
+    <script src="src/notes-sidebar-widget.js"></script>
 
     <script>
         function updateStatus(msg) {
@@ -553,6 +562,7 @@
 
         container.domMapWidget(console, mapModel, false);
         jQuery('body').mapToolbarWidget(mapModel);
+        jQuery('#notesSidebar').notesSidebarWidget(mapModel);
         mapModel.setIdea(idea);
         mapModel.selectNode(1);
 

@@ -63,6 +63,7 @@ $.fn.domMapWidget = function (activityLog, mapModel, touchEnabled, imageInsertCo
 			'.'	: 'activateSelectedNode',
 			'/' : 'toggleCollapse',
 			'a' : 'openAttachment',
+			'n' : 'openAttachment',
 			'i' : 'editIcon'
 		},
 		actOnKeys = true,

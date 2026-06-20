@@ -74,6 +74,14 @@
 
     <div id="container" tabindex="1"></div>
 
+    <div class="notes-sidebar" id="notesSidebar">
+        <div class="notes-sidebar-header">
+            <h3>Notes</h3>
+            <button class="notes-close">&times;</button>
+        </div>
+        <textarea placeholder="Type your notes here..."></textarea>
+    </div>
+
     <!-- Load dependencies -->
     <script src="lib/dependencies.js"></script>
 
@@ -95,6 +103,7 @@
     <script src="src/image-drop-widget.js"></script>
     <script src="src/dom-map-view.js"></script>
     <script src="src/dom-map-widget.js"></script>
+    <script src="src/notes-sidebar-widget.js"></script>
 
     <script>
         // Mind map starting with single root node
@@ -131,6 +140,7 @@
 
         container.domMapWidget(console, mapModel, false);
         jQuery('body').mapToolbarWidget(mapModel);
+        jQuery('#notesSidebar').notesSidebarWidget(mapModel);
         mapModel.setIdea(idea);
         mapModel.selectNode(1);
 

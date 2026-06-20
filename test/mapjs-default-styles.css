@@ -1,3 +1,5 @@
+@import url('https://fonts.cdnfonts.com/css/opendyslexic');
+
 .mapjs-node {
 	margin: 0;
 	padding: 7px;
@@ -30,7 +32,7 @@
 }
 .mapjs-node span {
 	white-space: pre-wrap;
-	font-family: "Helvetica";
+	font-family: "OpenDyslexic", "Helvetica", sans-serif;
 	font-weight: bold;
 	font-size: 12px;
 	text-align: center;
@@ -156,4 +158,57 @@
 }
 .mapjs-reorder-bounds[mapjs-edge="left"] {
 	background-image:url(chevron-right.svg);
+}
+
+/* Notes Sidebar */
+.notes-sidebar {
+	position: fixed;
+	top: 0;
+	right: -350px;
+	width: 350px;
+	height: 100%;
+	background: #fff;
+	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
+	z-index: 100;
+	transition: right 0.3s ease;
+	display: flex;
+	flex-direction: column;
+	font-family: "OpenDyslexic", "Helvetica", sans-serif;
+}
+.notes-sidebar.notes-sidebar-open {
+	right: 0;
+}
+.notes-sidebar-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 15px;
+	border-bottom: 1px solid #ddd;
+	background: #f5f5f5;
+}
+.notes-sidebar-header h3 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: bold;
+}
+.notes-close {
+	background: none;
+	border: none;
+	font-size: 20px;
+	cursor: pointer;
+	padding: 0 5px;
+	color: #666;
+}
+.notes-close:hover {
+	color: #000;
+}
+.notes-sidebar textarea {
+	flex: 1;
+	border: none;
+	padding: 15px;
+	resize: none;
+	font-size: 14px;
+	line-height: 1.5;
+	outline: none;
+	font-family: "OpenDyslexic", "Helvetica", sans-serif;
 }
