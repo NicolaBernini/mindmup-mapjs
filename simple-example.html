@@ -54,7 +54,8 @@
         • <strong>Delete/Backspace</strong>: Delete node<br>
         • <strong>Arrow keys</strong>: Navigate<br>
         • <strong>Ctrl/Cmd + Z</strong>: Undo<br>
-        • <strong>Ctrl/Cmd + Y</strong>: Redo
+        • <strong>Ctrl/Cmd + Y</strong>: Redo<br>
+        • <strong>N</strong>: Open/close Notes sidebar
     </div>
 
     <div id="controls">
@@ -69,6 +70,14 @@
     </div>
 
     <div id="container"></div>
+
+    <div class="notes-sidebar" id="notesSidebar">
+        <div class="notes-sidebar-header">
+            <h3>Notes</h3>
+            <button class="notes-close">&times;</button>
+        </div>
+        <textarea placeholder="Type your notes here..."></textarea>
+    </div>
 
     <!-- Load dependencies -->
     <script src="lib/dependencies.js"></script>
@@ -87,6 +96,7 @@
     <script src="src/image-drop-widget.js"></script>
     <script src="src/dom-map-view.js"></script>
     <script src="src/dom-map-widget.js"></script>
+    <script src="src/notes-sidebar-widget.js"></script>
 
     <script>
         // Create a simple mind map structure
@@ -129,6 +139,7 @@
 
         // Bind toolbar buttons to map model
         jQuery('body').mapToolbarWidget(mapModel);
+        jQuery('#notesSidebar').notesSidebarWidget(mapModel);
 
         // Load the mind map
         mapModel.setIdea(idea);
